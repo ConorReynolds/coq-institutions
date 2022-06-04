@@ -43,7 +43,7 @@ Definition comp_FOSig
       (on_preds τ (on_preds σ P)) ;
 |}.
 
-Theorem id_left_FOSig {Σ Σ' : Signature} (σ : SignatureMorphism Σ Σ') :
+Theorem id_left_FOSig {Σ Σ'} (σ : SignatureMorphism Σ Σ') :
   comp_FOSig (id_FOSig Σ') σ = σ.
 Proof with cbn.
   apply (eq_signature_morphism _ _ (comp_FOSig (id_FOSig Σ') σ) σ eq_refl); cbn.
@@ -67,7 +67,8 @@ Proof with cbn.
   apply (eq_signature_morphism _ _ 
     (comp_FOSig h (comp_FOSig g f))
     (comp_FOSig (comp_FOSig h g) f) eq_refl
-  ); cbn; repeat funext ?; simplify_eqs; destruct eqH2, eqH1, eqH0; now simplify_eqs.
+  ); cbn; repeat funext ?; simplify_eqs;
+     destruct eqH2, eqH1, eqH0; now simplify_eqs.
 Qed.
 
 Lemma comp_assoc_sym_FOSig :
@@ -126,7 +127,9 @@ Proof.
     now rewrite lemma2_3_11, <- IHm.
 Qed.
 
-Lemma reindex_id : ∀ {I : Type} {A : I -> Type} {is : list I} (args : HVec A is),
+Lemma reindex_id :
+  ∀ {I : Type} {A : I -> Type}
+    {is : list I} (args : HVec A is),
   reindex idmap args = rew (map_id is)^ in args.
 Proof.
   induction args; cbn in *.
@@ -194,7 +197,8 @@ Proof.
       rewrite (reindex_member_comp σ τ m).
       rewrite (map_subst (P := member (τ (σ s))) (λ _, var)); auto.
     * simp on_terms.
-      cut (∀ (A B C : Signature) (σ : SignatureMorphism A B) (τ : SignatureMorphism B C)
+      cut (∀ (A B C : Signature)
+             (σ : SignatureMorphism A B) (τ : SignatureMorphism B C)
              (Γ : Ctx A) (w : list (Sorts A)) (ts : HVec (Term A Γ) w),
                map_on_terms (comp_FOSig τ σ) ts =
                  rew [λ Γ, HVec (Term C Γ) _] (map_map σ τ Γ) in
@@ -266,8 +270,11 @@ Proof.
   - now simplify_eqs.
 Qed.
 
-Theorem fmap_compose_FOSen : ∀ {A B C : FOSig} (f : B ~> C) (g : A ~> B) {Γ : Ctx A} (φ : FOPEQ A Γ),
-  fmap_FOPEQ (comp_FOSig f g) φ = rew map_map g f Γ in fmap_FOPEQ f (fmap_FOPEQ g φ).
+Theorem fmap_compose_FOSen :
+  ∀ {A B C : FOSig} (f : B ~> C) (g : A ~> B)
+    {Γ : Ctx A} (φ : FOPEQ A Γ),
+  fmap_FOPEQ (comp_FOSig f g) φ =
+    rew map_map g f Γ in fmap_FOPEQ f (fmap_FOPEQ g φ).
 Proof.
   induction φ; cbn in * |- *; auto.
   - rewrite IHφ; cbn in *.
@@ -303,8 +310,12 @@ Definition FOSen : FOSig ⟶ SetCat.
   - rewrite fmap_compose_FOSen. now simplify_eqs.
 Defined.
 
-Lemma helper_eval_term_reduct (Σ Σ' : Signature) (A' : Algebra Σ') (σ : SignatureMorphism Σ Σ') Γ {s : Sorts Σ} (t : Term Σ Γ s) env :
-  eval_term (ReductAlgebra σ A') t env = eval_term A' (on_terms σ t) (reindex σ env).
+Lemma helper_eval_term_reduct
+    (Σ Σ' : Signature) (A' : Algebra Σ')
+    (σ : SignatureMorphism Σ Σ')
+    {Γ s} (t : Term Σ Γ s) env :
+  eval_term (ReductAlgebra σ A') t env =
+    eval_term A' (on_terms σ t) (reindex σ env).
 Proof.
   - induction t using term_ind'.
     + cbn in *.
@@ -321,8 +332,12 @@ Proof.
       now setoid_rewrite (proj1 (map_ext_HForall _ _ _) H).
 Qed.
 
-Lemma helper_map_eval_term_reduct (Σ Σ' : Signature) (A' : Algebra Σ') (σ : SignatureMorphism Σ Σ') Γ w (args : HVec (Term Σ Γ) w) env :
-  map_eval_term A' (map_on_terms σ args) (reindex σ env) = reindex σ (map_eval_term (ReductAlgebra σ A') args env).
+Lemma helper_map_eval_term_reduct
+    (Σ Σ' : Signature) (A' : Algebra Σ')
+    (σ : SignatureMorphism Σ Σ')
+    [Γ w] (args : HVec (Term Σ Γ) w) env :
+  map_eval_term A' (map_on_terms σ args) (reindex σ env) =
+    reindex σ (map_eval_term (ReductAlgebra σ A') args env).
 Proof.
   induction args.
   - reflexivity.
@@ -370,13 +385,17 @@ Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Qed.
 Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Qed.
 Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Qed.
 
-Lemma reindex_hmap [I J] [A B : I -> Type] (f : J -> I) (h : ∀ s, A s -> B s) [w] (l : HVec (A ∘ f) w) :
+Lemma reindex_hmap
+    [I J] [A B : I -> Type]
+    (f : J -> I) (h : ∀ s, A s -> B s)
+    [w] (l : HVec (A ∘ f) w) :
   hmap h (reindex f l) = reindex f (hmap (h ∘ f) l).
 Proof.
   induction l; cbn in *; f_equal; auto.
 Qed.
 
-Program Instance ReductFunctor [Σ Σ' : FOSig] (σ : Σ ~> Σ') : Alg Σ' ⟶ Alg Σ := {|
+Program Instance ReductFunctor
+    [Σ Σ' : FOSig] (σ : Σ ~> Σ') : Alg Σ' ⟶ Alg Σ := {|
   fobj := ReductAlgebra σ ;
   fmap := λ A B h, exist _ (h ∘ σ) _ ;
 |}.
@@ -389,7 +408,8 @@ Defined.
 Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Defined.
 Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Defined.
 
-Lemma reduct_id (Σ : Signature) (A : Algebra Σ) : ReductAlgebra (id_FOSig Σ) A = A.
+Lemma reduct_id (Σ : Signature) (A : Algebra Σ) :
+  ReductAlgebra (id_FOSig Σ) A = A.
 Proof.
   unfold ReductAlgebra; destruct A.
   cbn. repeat change (λ x, ?f x) with f. f_equal.
@@ -427,7 +447,8 @@ Theorem FOPEQ_satisfaction_with_context :
   ∀ (Σ Σ' : Signature) (σ : SignatureMorphism Σ Σ')
     {Γ : Ctx Σ} (φ : FOPEQ Σ Γ)
     (A' : Algebra Σ') (env : HVec (interp_sorts A' ∘ σ) Γ),
-  interp_fopeq A' (fmap_FOPEQ σ φ) (reindex σ env) <-> interp_fopeq (ReductAlgebra σ A') φ env.
+  interp_fopeq A' (fmap_FOPEQ σ φ) (reindex σ env) <->
+    interp_fopeq (ReductAlgebra σ A') φ env.
 Proof.
   intros; induction φ; cbn; split; auto.
   - intros.
@@ -501,7 +522,8 @@ Proof.
     contradiction.
 Qed.
 
-Definition FOPEQ_satisfaction (Σ Σ' : FOSig) (σ : Σ ~> Σ') (φ : FOPEQ Σ []) (A' : Algebra Σ') :=
+Definition FOPEQ_satisfaction
+    (Σ Σ' : FOSig) (σ : Σ ~> Σ') (φ : FOPEQ Σ []) (A' : Algebra Σ') :=
   FOPEQ_satisfaction_with_context (Γ := []) Σ Σ' σ φ A' ⟨⟩.
 
 Require Import Category.Functor.Opposite.

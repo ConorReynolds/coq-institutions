@@ -64,7 +64,8 @@ Arguments preserves_status_order {Σ Σ'}.
 
 Lemma eq_event_morphism (Σ Σ' : MachineSignature) (f g : EventMorphism Σ Σ')
   (p : event_mor f = event_mor g)
-  (q : rew [λ em, ∀ e, status_le (status e) (status (em e))] p in preserves_status_order f = preserves_status_order g)
+  (q : rew [λ em, ∀ e, status_le (status e) (status (em e))] p
+       in preserves_status_order f = preserves_status_order g)
   : f = g.
 Proof.
   destruct f, g.
@@ -150,7 +151,9 @@ Lemma eq_machine_mod (Σ : MachineSig) (M M' : { A & MachineMod Σ A })
   (p : projT1 M = projT1 M')
   (q : let (h,  l ) := projT2 M in
        let (h', l') := projT2 M' in
-       rew p' in h = h' ∧ rew [λ pm', list (events Σ * (Env (vars (evt_sig Σ)) pm'))] p' in l = l')
+       rew p' in h = h' ∧
+       rew [λ pm', list (events Σ * (Env (vars (evt_sig Σ)) pm'))] p'
+        in l = l')
   : M = M'.
 Proof.
   destruct M, M'; cbn in *.

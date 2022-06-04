@@ -316,7 +316,10 @@ Lemma bighelper
     (v : var_morphism σ X X')
     (θ' : Env X' M')
     (φ : FOPEQ (SigExpansion Σ X) []) :
-  interp_fopeq (AlgExpansion M' θ') (fmap_FOPEQ (flatten_morphism σ v) φ) (reindex (flatten_morphism σ v) ⟨⟩)
+  interp_fopeq
+    (AlgExpansion M' θ')
+    (fmap_FOPEQ (flatten_morphism σ v) φ)
+    (reindex (flatten_morphism σ v) ⟨⟩)
   <-> interp_fopeq (AlgExpansion (ReductAlgebra σ M') (retract_env σ v θ')) φ ⟨⟩.
 Proof.
   rewrite FOPEQ_satisfaction_with_context.
