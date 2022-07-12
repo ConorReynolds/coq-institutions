@@ -23,6 +23,9 @@ Section Ensembles_defs.
 
 Context [X Y : Type].
 
+Definition set_preimage (f : X -> Y) (S : SetOf Y) : SetOf X :=
+  ⦃ x : X // f x ∈ S ⦄.
+
 Definition set_image (f : X -> Y) (S : SetOf X) : SetOf Y :=
   ⦃ y : Y // ∃ x : X, x ∈ S ∧ f x = y ⦄.
 
@@ -47,5 +50,9 @@ Proof.
   apply Extensionality_Ensembles.
   split; intros ? ?; apply H; auto.
 Qed.
+
+Theorem set_mem_preimage (f : X -> Y) S a :
+  a ∈ set_preimage f S ↔ f a ∈ S.
+Proof. firstorder. Qed.
 
 End Ensembles_facts.

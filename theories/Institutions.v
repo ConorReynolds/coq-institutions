@@ -279,4 +279,57 @@ Proof.
   split; auto.
 Qed.
 
+Lemma alt_preserves_consequence (f : σ ~> τ) (Φ : presentation σ) :
+  set_map (fmap[Sen[I]] f) (closure_sen Φ) ⊆ closure_sen (set_map (fmap[Sen[I]] f) Φ).
+Proof.
+  intros ψ H.
+  destruct H as [φ H], H as [Hl Hr].
+  rewrite <- Hr.
+  apply preserves_consequence.
+  exact Hl.
+Qed.
+
+(** S&T FOAS Corollary 4.2.12 — sticking close(ish) to the proof in the book. *)
+Lemma corollary_4_2_12 (f : σ ~> τ) (Φ' : presentation τ) :
+  closed Φ' → closed (set_preimage (fmap[Sen[I]] f) Φ').
+Proof.
+  (* suppose Φ' is closed … *)
+  intros H. unfold closed in H.
+  (* deal with implicit reverse case *)
+  apply set_ext. intros φ. split. { apply closure_superset. }
+  (* let φ ∈ Cl(f⁻¹(Φ')) … *)
+  intros H'.
+  (* first notice that … *)
+  assert (hypo₁ : set_map (fmap[Sen[I]] f) (set_preimage (fmap[Sen[I]] f) Φ') ⊆ Φ').
+  { intros ψ H0. repeat destruct H0. rewrite <- H1. apply H0. }
+  assert (hypo₂ :
+    closure_sen (set_map (fmap[Sen[I]] f) (set_preimage (fmap[Sen[I]] f) Φ'))
+    ⊆ closure_sen Φ').
+  { apply (closure_preserves_order _ _ hypo₁). }
+
+  (* now. by proposition 4.2.9 (consequence preservation) *)
+  assert (hypo₃ : fmap[Sen[I]] f φ ∈ closure_sen (set_map (fmap[Sen[I]] f) (set_preimage (fmap[Sen[I]] f) Φ'))).
+  {
+    apply alt_preserves_consequence.
+    rewrite <- set_mem_preimage.
+    exists φ. split; auto.
+  }
+  rewrite <- H in hypo₂.
+  assert (final : fmap[Sen[I]] f φ ∈ Φ'). { apply hypo₂. assumption. }
+  
+  (* have f(φ) ∈ Φ'; hence φ ∈ f⁻¹(Φ') *)
+  rewrite set_mem_preimage. exact final.
+Qed.
+
+(** S&T FOAS Prop 4.2.15 *)
+Lemma prop_4_2_15 (f : σ ~> τ) (Φ' : presentation τ) :
+  closure_sen (set_preimage (fmap[Sen[I]] f) Φ') ⊆ set_preimage (fmap[Sen[I]] f) (closure_sen Φ').
+Proof.
+  intros φ H m H1.
+  rewrite sat. apply H.
+  intros ψ H2.
+  rewrite <- sat. apply H1.
+  exact H2.
+Qed.
+
 End consequence.
