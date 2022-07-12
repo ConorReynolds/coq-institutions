@@ -5,6 +5,7 @@ Require Import Category.Instance.Cat.
 
 Require Import Core.Basics.
 Require Import Core.HVec.
+Require Import Core.Sets.
 
 Require Import Peano.
 Require Import Lia.
@@ -152,3 +153,130 @@ Definition Duplex (I I' : Institution) (μ : InsSemiMorphism I I') : Institution
   - pose proof (H := @naturality _ _ _ _ (μs_mod μ) Σ' Σ σ M'); cbn in H.
     now rewrite <- H, sat.
 Defined.
+
+Section one_signature.
+
+Context [I : Institution].
+Context [σ : Sig[I]].
+
+(* unsure about this definition -- a presentation and a theory are the ‘same’
+   from a typing POV (both sets of sentences), but the presentation is usually a
+   finite set Φ ≜ { φ₁, …, φₙ } which ‘presents’ its theory Th(Φ), the set of all
+   semantic consequences of Φ. *)
+Definition presentation σ := (Ensemble (Sen[I] σ)).
+Definition model_class σ := (Ensemble (Mod[I] σ)).
+
+Open Scope sets_scope.
+
+Definition modelsof (Ψ : presentation σ) : model_class σ :=
+  ⦃ m : Mod[I] σ // ∀ ψ, ψ ∈ Ψ -> m ⊨ ψ ⦄.
+
+Definition theoryof (M : model_class σ) : Ensemble (Sen[I] σ) :=
+⦃ φ : Sen[I] σ // ∀ m, m ∈ M -> m ⊨ φ ⦄.
+
+Definition closure_sen (Ψ : presentation σ) :=
+  theoryof (modelsof Ψ).
+
+Definition closed (Ψ : presentation σ) :=
+  Ψ = closure_sen Ψ.
+
+Definition closure_mod (M : model_class σ) :=
+  modelsof (theoryof M).
+
+Definition definable (M : model_class σ) :=
+  M = closure_mod M.
+
+Lemma theoryof_galois : ∀ (M N : model_class σ),
+  M ⊆ N -> theoryof N ⊆ theoryof M.
+Proof.
+  intros M N H.
+  intros ψ H1 m H2.
+  apply H1, H, H2.
+Qed.
+
+Lemma modelsof_galois : ∀ (Φ Ψ : Ensemble (Sen[I] σ)),
+  Φ ⊆ Ψ -> modelsof Ψ ⊆ modelsof Φ.
+Proof.
+  intros ? ? ? m H1 φ H2.
+  apply H1, H, H2.
+Qed.
+
+Lemma corollary_4_2_3 : ∀ (Φ : Ensemble (Sen[I] σ)) M,
+  Φ ⊆ theoryof M ↔ M ⊆ modelsof Φ.
+Proof.
+  intros ? ?; split.
+  - intros H m ? φ ?.
+    apply H; auto.
+  - intros H φ ? m ?.
+    apply H; auto.
+Qed.
+
+Lemma closure_superset (Φ : presentation σ) :
+  Φ ⊆ closure_sen Φ.
+Proof.
+  intros φ ? ? ?.
+  apply H0; auto.
+Qed.
+
+Lemma closure_preserves_order (Φ Ψ : presentation σ) :
+  Φ ⊆ Ψ -> closure_sen Φ ⊆ closure_sen Ψ.
+Proof.
+  intros H; apply theoryof_galois, modelsof_galois; auto.
+Qed.
+
+Lemma closure_weakening (Φ Ψ : presentation σ) :
+  closure_sen Φ ⊆ closure_sen (Φ ∪ Ψ).
+Proof.
+  intros φ H m H1. apply H.
+  intros ψ H2. apply H1.
+  apply Union_introl; exact H2.
+Qed.
+
+End one_signature.
+
+Section consequence.
+
+Context [I : Institution].
+
+Definition semantic_consequence [σ] (Φ : presentation σ) (φ : Sen[I] σ) :=
+  φ ∈ closure_sen Φ.
+
+Local Infix "⟹" := semantic_consequence.
+
+Context [σ τ : Sig[I]].
+
+Lemma consequence_rfl (φ : Sen[I] σ) :
+  Singleton _ φ ⟹ φ.
+Proof.
+  intros m H. apply H. reflexivity.
+Qed.
+
+Lemma consequence_weakening (Φ Ψ : presentation σ) (φ : Sen[I] σ) :
+  Φ ⟹ φ -> Φ ∪ Ψ ⟹ φ.
+Proof.
+  intros H1. apply closure_weakening. assumption.
+Qed.
+
+Lemma consequence_transitive
+  (Φ : presentation σ) (Ψ : Sen[I] σ -> presentation σ)
+  (ψ : Sen[I] σ) :
+  Φ ⟹ ψ -> (∀ φ, φ ∈ Φ -> Ψ φ ⟹ φ) -> IndexedUnion Ψ ⟹ ψ.
+Proof.
+  intros H H1 m H2. apply H.
+  intros φ H3. apply H1; auto.
+  intros ρ Hρ. apply H2. exists φ; auto.
+Qed.
+
+Lemma preserves_consequence (f : σ ~> τ) (Φ : presentation σ) (φ : Sen[I] σ) :
+  Φ ⟹ φ -> set_map (fmap[Sen[I]] f) Φ ⟹ fmap[Sen[I]] f φ.
+Proof.
+  intros H m H1.
+  rewrite sat. apply H.
+  intros ψ H2.
+  rewrite <- sat.
+  apply H1.
+  exists ψ.
+  split; auto.
+Qed.
+
+End consequence.
