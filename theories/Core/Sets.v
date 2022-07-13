@@ -11,10 +11,10 @@ Notation "x ∈ S" := (In _ S x) (at level 20) : sets_scope.
 Notation "x ∉ S" := (~ In _ S x) (at level 20) : sets_scope.
 Notation "S ⊆ T" := (Included _ S T) (at level 30) : sets_scope.
 Notation "S ⊊ T" := (Strict_Included _ S T) (at level 30) : sets_scope.
+Notation "S ∪ T" := (Union _ S T) (at level 50) : sets_scope.
+Notation "S ∩ T" := (Intersection _ S T) (at level 50) : sets_scope.
 Notation "⦃ x : T // P ⦄" := (λ x : T, P) (at level 1, x at level 99 as ident, only parsing) : sets_scope.
 Notation "⦃ x ∈ S // P ⦄" := (λ x, S x ∧ P) (at level 0, x at level 19 as ident) : sets_scope.
-
-Notation "S ∪ T" := (Union _ S T) (at level 50) : sets_scope.
 
 Open Scope sets_scope.
 
@@ -39,6 +39,12 @@ Definition IndexedIntersection (A : I -> SetOf X) : SetOf X := ⦃ x : X // ∀ 
 
 End Ensembles_defs.
 
+(* ⁻¹ already taken in the category theory lib — using the Lean notation instead *)
+Notation "f '⁻¹''" := (set_preimage f) (at level 5, format "f ⁻¹'") : sets_scope.
+
+(* If we had superscript arrows we could have f^{→} and f^{←} as image and
+ * preimage respectively. Oh well. *)
+
 Section Ensembles_facts.
 
 Context [X Y : Type].
@@ -52,7 +58,7 @@ Proof.
 Qed.
 
 Theorem set_mem_preimage (f : X -> Y) S a :
-  a ∈ set_preimage f S ↔ f a ∈ S.
+  a ∈ f⁻¹' S <-> f a ∈ S.
 Proof. firstorder. Qed.
 
 End Ensembles_facts.
