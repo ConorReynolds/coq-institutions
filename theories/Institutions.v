@@ -214,8 +214,7 @@ Qed.
 Lemma closure_superset (Φ : presentation σ) :
   Φ ⊆ closure_sen Φ.
 Proof.
-  intros φ ? ? ?.
-  apply H0; auto.
+  intros φ ? ? ?; apply H0; auto.
 Qed.
 
 Lemma closure_preserves_order (Φ Ψ : presentation σ) :
@@ -238,28 +237,28 @@ Section consequence.
 
 Context [I : Institution].
 
-Definition semantic_consequence [σ] (Φ : presentation σ) (φ : Sen[I] σ) :=
+Definition semantic_consequence [σ] (Φ : presentation σ) (φ : Sen σ) :=
   φ ∈ closure_sen Φ.
 
 Local Infix "⟹" := semantic_consequence.
 
-Context [σ τ : Sig[I]].
+Context [σ τ : Sig].
 
-Lemma consequence_rfl (φ : Sen[I] σ) :
+Lemma consequence_rfl (φ : Sen σ) :
   Singleton _ φ ⟹ φ.
 Proof.
   intros m H. apply H. reflexivity.
 Qed.
 
-Lemma consequence_weakening (Φ Ψ : presentation σ) (φ : Sen[I] σ) :
+Lemma consequence_weakening (Φ Ψ : presentation σ) (φ : Sen σ) :
   Φ ⟹ φ -> Φ ∪ Ψ ⟹ φ.
 Proof.
   intros H1. apply closure_weakening. assumption.
 Qed.
 
 Lemma consequence_transitive
-  (Φ : presentation σ) (Ψ : Sen[I] σ -> presentation σ)
-  (ψ : Sen[I] σ) :
+  (Φ : presentation σ) (Ψ : Sen σ -> presentation σ)
+  (ψ : Sen σ) :
   Φ ⟹ ψ -> (∀ φ, φ ∈ Φ -> Ψ φ ⟹ φ) -> IndexedUnion Ψ ⟹ ψ.
 Proof.
   intros H H1 m H2. apply H.
@@ -267,8 +266,8 @@ Proof.
   intros ρ Hρ. apply H2. exists φ; auto.
 Qed.
 
-Lemma preserves_consequence (f : σ ~> τ) (Φ : presentation σ) (φ : Sen[I] σ) :
-  Φ ⟹ φ -> set_image (fmap[Sen[I]] f) Φ ⟹ fmap[Sen[I]] f φ.
+Lemma preserves_consequence (f : σ ~> τ) (Φ : presentation σ) (φ : Sen σ) :
+  Φ ⟹ φ -> set_image (fmap[Sen] f) Φ ⟹ fmap[Sen] f φ.
 Proof.
   intros H m H1.
   rewrite sat. apply H.
@@ -280,7 +279,7 @@ Proof.
 Qed.
 
 Lemma alt_preserves_consequence (f : σ ~> τ) (Φ : presentation σ) :
-  set_image (fmap[Sen[I]] f) (closure_sen Φ) ⊆ closure_sen (set_image (fmap[Sen[I]] f) Φ).
+  set_image (fmap[Sen] f) (closure_sen Φ) ⊆ closure_sen (set_image (fmap[Sen] f) Φ).
 Proof.
   intros ψ H.
   destruct H as [φ H], H as [Hl Hr].
@@ -291,7 +290,7 @@ Qed.
 
 (** S&T FOAS Corollary 4.2.12 — sticking close(ish) to the proof in the book. *)
 Lemma corollary_4_2_12 (f : σ ~> τ) (Φ' : presentation τ) :
-  closed Φ' → closed ((fmap[Sen[I]] f)⁻¹' Φ').
+  closed Φ' → closed ((fmap[Sen] f)⁻¹' Φ').
 Proof.
   (* suppose Φ' is closed … *)
   intros H. unfold closed in H.
@@ -300,22 +299,22 @@ Proof.
   (* let φ ∈ Cl(f⁻¹(Φ')) … *)
   intros H'.
   (* first notice that … *)
-  assert (hypo₁ : set_image (fmap[Sen[I]] f) ((fmap[Sen[I]] f)⁻¹' Φ') ⊆ Φ').
+  assert (hypo₁ : set_image (fmap[Sen] f) ((fmap[Sen] f)⁻¹' Φ') ⊆ Φ').
   { intros ψ H0. repeat destruct H0. rewrite <- H1. apply H0. }
   assert (hypo₂ :
-    closure_sen (set_image (fmap[Sen[I]] f) ((fmap[Sen[I]] f)⁻¹' Φ'))
+    closure_sen (set_image (fmap[Sen] f) ((fmap[Sen] f)⁻¹' Φ'))
     ⊆ closure_sen Φ').
   { apply (closure_preserves_order _ _ hypo₁). }
 
   (* now. by proposition 4.2.9 (consequence preservation) *)
-  assert (hypo₃ : fmap[Sen[I]] f φ ∈ closure_sen (set_image (fmap[Sen[I]] f) ((fmap[Sen[I]] f)⁻¹' Φ'))).
+  assert (hypo₃ : fmap[Sen] f φ ∈ closure_sen (set_image (fmap[Sen] f) ((fmap[Sen] f)⁻¹' Φ'))).
   {
     apply alt_preserves_consequence.
     rewrite <- set_mem_preimage.
     exists φ; auto.
   }
   rewrite <- H in hypo₂.
-  assert (final : fmap[Sen[I]] f φ ∈ Φ'). { apply hypo₂. assumption. }
+  assert (final : fmap[Sen] f φ ∈ Φ'). { apply hypo₂. assumption. }
   
   (* have f(φ) ∈ Φ'; hence φ ∈ f⁻¹(Φ') *)
   rewrite set_mem_preimage. exact final.
@@ -323,7 +322,7 @@ Qed.
 
 (** S&T FOAS Prop 4.2.15 (one part) *)
 Lemma prop_4_2_15 (f : σ ~> τ) (Φ' : presentation τ) :
-  closure_sen ((fmap[Sen[I]] f)⁻¹' Φ') ⊆ (fmap[Sen[I]] f)⁻¹' (closure_sen Φ').
+  closure_sen ((fmap[Sen] f)⁻¹' Φ') ⊆ (fmap[Sen] f)⁻¹' (closure_sen Φ').
 Proof.
   intros φ H m H1.
   rewrite sat. apply H.
@@ -334,7 +333,7 @@ Qed.
 
 (** S&T FOAS Prop 4.2.15 (the other part) *)
 Lemma prop_4_2_15' (f : σ ~> τ) (Φ' : presentation τ) :
-  (fmap[Sen[I]] f)⁻¹' (closure_sen Φ') = theoryof (set_image (fmap[Mod[I]] f) (modelsof Φ')).
+  (fmap[Sen] f)⁻¹' (closure_sen Φ') = theoryof (set_image (fmap[Mod] f) (modelsof Φ')).
 Proof.
   apply set_ext; intros φ; split; intros ? ? ?.
   - destruct H0, H0. rewrite <- H1, <- sat. apply H. auto.
@@ -342,13 +341,9 @@ Proof.
 Qed.
 
 Lemma corollary_4_2_16 (f : σ ~> τ) (Φ : presentation σ) :
-  closure_sen Φ ⊆ (fmap[Sen[I]] f)⁻¹' (closure_sen (set_image (fmap[Sen[I]] f) Φ)).
+  closure_sen Φ ⊆ (fmap[Sen] f)⁻¹' (closure_sen (set_image (fmap[Sen] f) Φ)).
 Proof.
-  intros ? ? ? ?.
-  rewrite sat. apply H.
-  intros ? ?.
-  rewrite <- sat. apply H0.
-  exists ψ; auto.
+  intros ? ?; apply set_mem_preimage, preserves_consequence; auto.
 Qed.
 
 End consequence.
