@@ -157,22 +157,22 @@ Defined.
 Section one_signature.
 
 Context [I : Institution].
-Context [σ : Sig[I]].
+Context [σ : Sig].
 
 (* unsure about this definition -- a presentation and a theory are the ‘same’
    from a typing POV (both sets of sentences), but the presentation is usually a
    finite set Φ ≜ { φ₁, …, φₙ } which ‘presents’ its theory Th(Φ), the set of all
    semantic consequences of Φ. *)
-Definition presentation σ := (Ensemble (Sen[I] σ)).
-Definition model_class σ := (Ensemble (Mod[I] σ)).
+Definition presentation σ := (Ensemble (Sen σ)).
+Definition model_class σ := (Ensemble (Mod σ)).
 
 Open Scope sets_scope.
 
 Definition modelsof (Ψ : presentation σ) : model_class σ :=
-  ⦃ m : Mod[I] σ // ∀ ψ, ψ ∈ Ψ -> m ⊨ ψ ⦄.
+  ⦃ m : Mod σ // ∀ ψ, ψ ∈ Ψ -> m ⊨ ψ ⦄.
 
-Definition theoryof (M : model_class σ) : Ensemble (Sen[I] σ) :=
-  ⦃ φ : Sen[I] σ // ∀ m, m ∈ M -> m ⊨ φ ⦄.
+Definition theoryof (M : model_class σ) : Ensemble (Sen σ) :=
+  ⦃ φ : Sen σ // ∀ m, m ∈ M -> m ⊨ φ ⦄.
 
 Definition closure_sen (Ψ : presentation σ) :=
   theoryof (modelsof Ψ).
@@ -194,15 +194,15 @@ Proof.
   apply H1, H, H2.
 Qed.
 
-Lemma modelsof_galois : ∀ (Φ Ψ : Ensemble (Sen[I] σ)),
+Lemma modelsof_galois : ∀ (Φ Ψ : Ensemble (Sen σ)),
   Φ ⊆ Ψ -> modelsof Ψ ⊆ modelsof Φ.
 Proof.
   intros ? ? ? m H1 φ H2.
   apply H1, H, H2.
 Qed.
 
-Lemma corollary_4_2_3 : ∀ (Φ : Ensemble (Sen[I] σ)) M,
-  Φ ⊆ theoryof M ↔ M ⊆ modelsof Φ.
+Lemma corollary_4_2_3 : ∀ (Φ : Ensemble (Sen σ)) M,
+  Φ ⊆ theoryof M <-> M ⊆ modelsof Φ.
 Proof.
   intros ? ?; split.
   - intros H m ? φ ?.
