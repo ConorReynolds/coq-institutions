@@ -29,9 +29,6 @@ Definition set_preimage (f : X -> Y) (S : SetOf Y) : SetOf X :=
 Definition set_image (f : X -> Y) (S : SetOf X) : SetOf Y :=
   ⦃ y : Y // ∃ x : X, x ∈ S ∧ f x = y ⦄.
 
-Definition set_map (f : X -> Y) (S : SetOf X) : SetOf Y :=
-  set_image f S.
-
 Context [I : Type].
 
 Definition IndexedUnion (A : I -> SetOf X) : SetOf X := ⦃ x : X // ∃ i : I, x ∈ A i ⦄.

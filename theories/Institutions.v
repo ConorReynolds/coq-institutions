@@ -37,13 +37,13 @@ Defined.
 Instance Functor_Setoid {C D : Category} : Setoid (C ⟶ D).
   unshelve refine {|
     equiv (F G : C ⟶ D) := ∀ x : C, F x = G x ;
-  |}; equivalence. transitivity (y x0); auto.
+  |}. split; auto. repeat intro. transitivity (y x0); auto.
 Defined.
 
 Program Instance Compose_respects {C D E : Category} :
   Proper (equiv ==> equiv ==> equiv) (@Compose C D E).
 Next Obligation.
-  proper. rewrite H0, H. auto.
+  cbn; rewrite H0, H. auto.
 Qed.
 
 Program Instance Cat : Category := {
@@ -268,7 +268,7 @@ Proof.
 Qed.
 
 Lemma preserves_consequence (f : σ ~> τ) (Φ : presentation σ) (φ : Sen[I] σ) :
-  Φ ⟹ φ -> set_map (fmap[Sen[I]] f) Φ ⟹ fmap[Sen[I]] f φ.
+  Φ ⟹ φ -> set_image (fmap[Sen[I]] f) Φ ⟹ fmap[Sen[I]] f φ.
 Proof.
   intros H m H1.
   rewrite sat. apply H.
@@ -280,7 +280,7 @@ Proof.
 Qed.
 
 Lemma alt_preserves_consequence (f : σ ~> τ) (Φ : presentation σ) :
-  set_map (fmap[Sen[I]] f) (closure_sen Φ) ⊆ closure_sen (set_map (fmap[Sen[I]] f) Φ).
+  set_image (fmap[Sen[I]] f) (closure_sen Φ) ⊆ closure_sen (set_image (fmap[Sen[I]] f) Φ).
 Proof.
   intros ψ H.
   destruct H as [φ H], H as [Hl Hr].
@@ -300,15 +300,15 @@ Proof.
   (* let φ ∈ Cl(f⁻¹(Φ')) … *)
   intros H'.
   (* first notice that … *)
-  assert (hypo₁ : set_map (fmap[Sen[I]] f) ((fmap[Sen[I]] f)⁻¹' Φ') ⊆ Φ').
+  assert (hypo₁ : set_image (fmap[Sen[I]] f) ((fmap[Sen[I]] f)⁻¹' Φ') ⊆ Φ').
   { intros ψ H0. repeat destruct H0. rewrite <- H1. apply H0. }
   assert (hypo₂ :
-    closure_sen (set_map (fmap[Sen[I]] f) ((fmap[Sen[I]] f)⁻¹' Φ'))
+    closure_sen (set_image (fmap[Sen[I]] f) ((fmap[Sen[I]] f)⁻¹' Φ'))
     ⊆ closure_sen Φ').
   { apply (closure_preserves_order _ _ hypo₁). }
 
   (* now. by proposition 4.2.9 (consequence preservation) *)
-  assert (hypo₃ : fmap[Sen[I]] f φ ∈ closure_sen (set_map (fmap[Sen[I]] f) ((fmap[Sen[I]] f)⁻¹' Φ'))).
+  assert (hypo₃ : fmap[Sen[I]] f φ ∈ closure_sen (set_image (fmap[Sen[I]] f) ((fmap[Sen[I]] f)⁻¹' Φ'))).
   {
     apply alt_preserves_consequence.
     rewrite <- set_mem_preimage.
