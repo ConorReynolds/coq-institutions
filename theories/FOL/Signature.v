@@ -1,49 +1,54 @@
 Require Import Core.Basics.
+Require Import Core.Tagged.
 Require Import Core.HVec.
 
 Record Signature := {
   Sorts : Type ;
-  Funcs : list Sorts -> Sorts -> Type ;
-  Preds : list Sorts -> Type ;
+  Funcs : Tagged (list Sorts * Sorts) ;
+  Preds : Tagged (list Sorts) ;
 }.
 
 Lemma eq_signature (Σ Σ' : Signature)
   (p : Sorts Σ = Sorts Σ')
-  (q : rew [λ s, list s -> s -> Type] p in Funcs Σ = Funcs Σ')
-  (r : rew [λ s, list s -> Type] p in Preds Σ = Preds Σ')
+  (q : tagged_mkeq (rew [λ x, Tagged (list x * x)] p in Funcs Σ) (Funcs Σ'))
+  (r : tagged_mkeq (rew [Tagged ∘ list] p in Preds Σ) (Preds Σ'))
   : Σ = Σ'.
 Proof.
-  destruct Σ, Σ'.
-  cbn in *.
+  rewrite tagged_eq_iff in q.
+  rewrite tagged_eq_iff in r.
+  destruct Σ, Σ'; cbn in *.
   now destruct p, q, r.
 Qed.
 
 Definition Arity Σ := list (Sorts Σ).
 
-Inductive LogicRel : list unit -> unit -> Type :=
-| D : LogicRel [] tt.
+Notation ar F := (fst (get_tag F)) (only parsing).
+Notation res F := (snd (get_tag F)) (only parsing).
+Notation arP P := (get_tag P) (only parsing).
 
-Definition Logic : Signature := {|
-  Sorts := unit ;
-  Funcs := LogicRel ;
-  Preds := λ _, Empty_set ;
-|}.
+Definition lift_sig [A B] (f : A -> B) x := (map f (fst x), f (snd x)).
+
+Lemma lift_sig_compose [A B C] (g : B -> C) (f : A -> B) x :
+lift_sig g (lift_sig f x) = lift_sig (g ∘ f) x.
+Proof.
+  induction x; unfold lift_sig; cbn; rewrite map_map; reflexivity.
+Qed.
 
 Record SignatureMorphism (Σ Σ' : Signature) := {
   on_sorts :> Sorts Σ -> Sorts Σ' ;
-  on_funcs : ∀ w s, Funcs Σ w s -> Funcs Σ' (map on_sorts w) (on_sorts s) ;
-  on_preds : ∀ w, Preds Σ w -> Preds Σ' (map on_sorts w) ;
+  on_funcs : tagged_morphism (lift_sig on_sorts) (Funcs Σ) (Funcs Σ') ;
+  on_preds : tagged_morphism (map on_sorts) (Preds Σ) (Preds Σ') ;
 }.
 
 Arguments on_sorts {Σ Σ'} σ s : rename.
-Arguments on_funcs {Σ Σ'} σ {w s} f : rename.
-Arguments on_preds {Σ Σ'} σ {w} P : rename.
+Arguments on_funcs {Σ Σ'} σ : rename.
+Arguments on_preds {Σ Σ'} σ : rename.
 
 Lemma eq_signature_morphism (Σ Σ' : Signature) (σ σ' : SignatureMorphism Σ Σ')
   (p : on_sorts σ = on_sorts σ')
-  (q : rew [λ os, ∀ w s, Funcs Σ w s -> Funcs Σ' (map os w) (os s)] p
+  (q : rew [λ os, tagged_morphism (lift_sig os) (Funcs Σ) (Funcs Σ')] p
         in (@on_funcs _ _ σ) = @on_funcs _ _ σ')
-  (r : rew [λ os, ∀ w, Preds Σ w -> Preds Σ' (map os w)] p
+  (r : rew [λ os, tagged_morphism (map os) (Preds Σ) (Preds Σ')] p
         in (@on_preds _ _ σ) = @on_preds _ _ σ')
   : σ = σ'.
 Proof.
@@ -51,3 +56,9 @@ Proof.
   cbn in *.
   now destruct p, q, r.
 Qed.
+
+Lemma arityF_commutes [Σ Σ'] (σ : SignatureMorphism Σ Σ') F :
+  map σ (fst (Funcs Σ F)) = fst (Funcs Σ' (on_funcs σ F)).
+Proof.
+  rewrite tagged_morphism_commutes; reflexivity.
+Defined.

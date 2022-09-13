@@ -1,4 +1,5 @@
 Require Import Core.Basics.
+Require Import Core.Tagged.
 Require Import Core.HVec.
 Require Import FOL.Signature.
 Require Import FOL.Algebra.
@@ -11,7 +12,7 @@ Inductive FOPEQ : Ctx Σ -> Type :=
 | Forall : ∀ Γ s, FOPEQ (s :: Γ) -> FOPEQ Γ
 | Exists : ∀ Γ s, FOPEQ (s :: Γ) -> FOPEQ Γ
 | Equal  : ∀ Γ s, Term Σ Γ s -> Term Σ Γ s -> FOPEQ Γ
-| Pred   : ∀ Γ w, Preds Σ w -> HVec (Term Σ Γ) w -> FOPEQ Γ
+| Pred   : ∀ Γ (P : Preds Σ), HVec (Term Σ Γ) (arP P) -> FOPEQ Γ
 | And    : ∀ Γ, FOPEQ Γ -> FOPEQ Γ -> FOPEQ Γ
 | Or     : ∀ Γ, FOPEQ Γ -> FOPEQ Γ -> FOPEQ Γ
 | Imp    : ∀ Γ, FOPEQ Γ -> FOPEQ Γ -> FOPEQ Γ
@@ -24,7 +25,7 @@ End FOPEQ.
 Arguments Forall {Σ Γ s}.
 Arguments Exists {Σ Γ s}.
 Arguments Equal {Σ Γ s}.
-Arguments Pred {Σ Γ w}.
+Arguments Pred {Σ Γ}.
 Arguments And {Σ Γ}.
 Arguments Or {Σ Γ}.
 Arguments Imp {Σ Γ}.

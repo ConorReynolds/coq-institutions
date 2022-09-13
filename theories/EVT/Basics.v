@@ -1,6 +1,7 @@
 Require Import Category.Theory.
 
 Require Import Core.Basics.
+Require Import Core.Tagged.
 Require Import Core.HVec.
 Require Import FOL.Signature.
 Require Import FOL.Algebra.
@@ -34,18 +35,12 @@ Program Definition reindexing_functor {I J} (u : I -> J) : Indexed J ⟶ Indexed
   fmap := λ X Y f i x, f (u i) x ;
 |}.
 
-(** Variables are here rendered as a type [varnames] together with a function
-    [varsorts] which assigns each variable a sort. We also require that
-    [varnames] has decidable equality (otherwise the envplus construction won’t
-    work). *)
 Record Vars Σ := { 
-  varnames :> Type ;
-  varsorts :> varnames -> Sorts Σ ;
-  vars_dec : EqDec varnames eq ;
+  tvars :> Tagged (Sorts Σ);
+  vars_dec : EqDec (tagged_data tvars) eq ;
 }.
 
-Arguments varnames [Σ].
-Arguments varsorts [Σ _].
+Arguments tvars [Σ].
 Arguments vars_dec [Σ].
 
 (*****************************************************************************)
@@ -99,7 +94,7 @@ Qed.
    Their way of spelling out the proofs such that they compute better works
    quite well here too. *)
 Definition var_morphism [A B : FOSig] (σ : Sorts A -> Sorts B) (X : Vars A) (Y : Vars B) :=
-  { f : X -> Y | ∀ x : X, varsorts (f x) = σ (varsorts x) }.
+  tagged_morphism σ X Y.
 
 Definition var_morphism_map
     [A B : FOSig] (σ : Sorts A -> Sorts B) (X : Vars A) (Y : Vars B)
@@ -156,7 +151,7 @@ Proof.
 Qed.
 
 Lemma varmap_id_on_index [Σ] [X Y : Vars Σ] (f : var_morphism idmap X Y) :
-  ∀ x, varsorts (f x) = varsorts x.
+  ∀ x, get_tag (f x) = get_tag x.
 Proof.
   intros ?; rewrite <- (proj2_sig f); auto.
 Qed.
@@ -179,6 +174,9 @@ Global Instance prel_vars Σ : Primed (vars Σ) (vars' Σ).
 Proof.
   exact (prime_rel Σ).
 Defined.
+
+(* Idea: create injection [Tagged A ↪ Tagged (List A * A)] and then use regular
+   tagged sum *)
 
 Definition SigExpansion (Σ : FOSig) (X : Vars Σ) : FOSig := {|
   Sorts := Sorts Σ ;

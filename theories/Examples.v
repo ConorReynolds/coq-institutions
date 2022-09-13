@@ -649,7 +649,7 @@ Proof.
   cbn; autounfold.
   left.               (* φ1 U φ2 true in first state *)
   exists 1%nat; cbn.  (* φ1 stays true until the second state *)
-  cbn; split; auto.   (* prove the above claims *)
+  split; auto.        (* prove the above claims *)
 Qed.
 
 Theorem constraint_correct₅ : trace ⊨ ltl_constraint₅.
