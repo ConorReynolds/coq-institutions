@@ -1,6 +1,7 @@
 Require Import Category.Theory.
 
 Require Import Core.Basics.
+Require Import Core.Tagged.
 Require Import Core.HVec.
 Require Import FOL.Signature.
 Require Import FOL.Algebra.
@@ -69,8 +70,10 @@ Defined.
 (** * EVT Sentence Functor *)
 
 Definition var_translation [A B] (σ : SignatureMorphism A B) (X : Vars A) : Vars B := {|
-  varnames := varnames X ;
-  varsorts := σ ∘ @varsorts _ _ ;
+  tvars := {|
+    tagged_data := X ;
+    get_tag := σ ∘ @get_tag _ _ ;
+  |} ;
   vars_dec := vars_dec X ;
 |}.
 
@@ -105,17 +108,17 @@ Definition flatten_morphism
 Proof.
   refine {|
     on_sorts := on_sorts σ : Sorts (SigExpansion Σ₁ X₁) -> Sorts (SigExpansion Σ₂ X₂) ;
-    on_funcs := λ w s F, _ ;
-    on_preds := λ w P, on_preds σ P ;
+    on_funcs := _ ;
+    on_preds := on_preds σ ;
   |}.
-  destruct w.
-  - destruct F as [F | x].
-    * left; exact (on_funcs σ F).
-    * right; refine (exist _ (proj1_sig v (proj1_sig x)) _).
-      refine (eq_trans _ _).
-      + now rewrite (proj2_sig v).
-      + now rewrite (proj2_sig x).
-  - exact (on_funcs σ F).
+  unshelve esplit.
+  - intros. destruct X.
+    * left. exact (on_funcs σ t).
+    * right. exact (v t).
+  - intros. destruct x; cbn.
+    * apply tagged_morphism_commutes.
+    * unfold lift_sig. f_equal.
+      apply tagged_morphism_commutes.
 Defined.
 
 Definition flatten_init_morphism {Σ Σ' : EvtSig} (σ : Σ ~> Σ') :=
@@ -135,13 +138,8 @@ Theorem id_SigExpansion {Σ} {X : Vars Σ}
   flatten_morphism (id_FOSig Σ) f = id_FOSig (SigExpansion Σ X).
 Proof.
   unfold id_FOSig, flatten_morphism; f_equal; cbn in *.
-  funext w s op_or_var; destruct w.
-  - destruct op_or_var; simplify_eqs; auto.
-    f_equal. destruct s0; cbn in *. now apply subset_eq_compat.
-  - rewrite map_id_cons_pfs.
-    rewrite <- ap_V.
-    rewrite <- rew_map.
-    simplify_eqs; destruct eqH; now simplify_eqs.
+  apply subset_eq_compat. funext x. destruct x; auto.
+  f_equal. apply pf.
 Qed.
 
 Theorem comp_SigExpansion {A B C : FOSig} {X Y Z} {σ : B ~> C} {τ : A ~> B}
@@ -150,15 +148,9 @@ Theorem comp_SigExpansion {A B C : FOSig} {X Y Z} {σ : B ~> C} {τ : A ~> B}
     comp_FOSig (flatten_morphism σ f) (flatten_morphism τ g).
 Proof with cbn.
   destruct f, g...
-  unfold flatten_morphism...
-  unfold comp_FOSig...
-  f_equal. funext w s F.
-  destruct w...
-  - destruct F as [ c | v ].
-    * now simplify_eqs.
-    * simplify_eqs. f_equal; now apply subset_eq_compat.
-  - rewrite map_map_cons_pfs.
-    now repeat rewrite <- rew_map.
+  unfold flatten_morphism, comp_FOSig...
+  f_equal. apply subset_eq_compat.
+  funext F. destruct F as [F | c]; auto.
 Qed.
 
 Theorem comp_SigExpansion_init {A B C : EvtSig} (f : B ~> C) (g : A ~> B) :
@@ -302,10 +294,8 @@ Lemma expand_retract_eq {A B : FOSig} (σ : A ~> B)
     ReductAlgebra (flatten_morphism σ v) (AlgExpansion M' θ').
 Proof.
   unfold AlgExpansion, ReductAlgebra, flatten_morphism; f_equal.
-  funext w s F θ.
-  induction w; cbn in *; auto.
-  destruct F as [F | x]; auto.
-  unfold retract_env; now simplify_eqs.
+  funext F θ. destruct F; cbn in *; auto.
+  unfold retract_env. simplify_eqs. destruct eqH. now simplify_eqs.
 Qed.
 
 (* Need to rename this, but I can’t think of any good names. *)

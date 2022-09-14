@@ -3,6 +3,7 @@ Require Import Category.Theory.
 Require Import Category.Functor.Opposite.
 
 Require Import Core.Utils.
+Require Import Core.Tagged.
 Require Import Institutions.InsFOPEQ.
 Require Import Institutions.InsEVT.
 
@@ -260,9 +261,8 @@ Next Obligation.
   - funext e'. unfold flatten_event_morphism.
     assert (flatten_morphism (id_EvtSig (evt_sig Σ)) (varmap_sum _ (on_vars _) (on_vars' _)) = id{FOSig}).
     * unfold flatten_morphism. cbn. unshelve refine (eq_signature_morphism _ _ _ _ _ _ _); cbn; auto.
-      repeat ext. destruct H; cbn. destruct H1; simplify_eqs; auto.
-      destruct s; cbn. f_equal. apply subset_eq_compat. destruct x; auto. rewrite p_unp. auto.
-      now rewrite map_id_cons_pfs, <- ap_V, <- rew_map, <- rew_map.
+      apply subset_eq_compat. funext ?. destruct x; auto. destruct t; auto.
+      now rewrite p_unp.
     * rewrite H; cbn.
       rewrite fmap_id_FOSen.
       now simplify_eqs.

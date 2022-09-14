@@ -67,6 +67,15 @@ Proof.
   * apply f_equal. apply tagged_morphism_commutes.
 Defined.
 
+Definition tagged_sum {A} (T1 T2 : Tagged A) : Tagged A := {|
+  tagged_data := T1 + T2 ;
+  get_tag x :=
+    match x with
+    | inl x => T1 x
+    | inr x => T2 x
+    end ;
+|}.
+
 (* Lemma oaknbsdokasnd [A] (f : A -> A) (X : Tagged A) (extid : ∀ x, f x = x) :
   tagged_morphism f X X = tagged_morphism idmap X X.
 Proof.

@@ -178,25 +178,25 @@ Defined.
 (* Idea: create injection [Tagged A ↪ Tagged (List A * A)] and then use regular
    tagged sum *)
 
+Definition lift_vars [Σ] (X : Vars Σ) : Tagged (list (Sorts Σ) * Sorts Σ) := {|
+  tagged_data := tagged_data X ;
+  get_tag x := ([], get_tag x) ;
+|}.
+
 Definition SigExpansion (Σ : FOSig) (X : Vars Σ) : FOSig := {|
   Sorts := Sorts Σ ;
-  Funcs := λ w s, match w with
-                  | [] => (Funcs Σ [] s + { x | @varsorts Σ X x = s })%type
-                  | _  => Funcs Σ w s
-                  end%type ;
+  Funcs := tagged_sum (Funcs Σ) (lift_vars X) ;
   Preds := Preds Σ ;
 |}.
 
 Program Definition EvtSigExpansion (Σ : EvtSignature) (X : Vars Σ) : EvtSignature := {|
   base := SigExpansion Σ X ;
   vars := {|
-    varnames := vars Σ ;
-    varsorts := vars Σ ;
+    tvars := vars Σ ;
     vars_dec := vars_dec (vars Σ) ;
   |} ;
   vars' := {|
-    varnames := vars' Σ ;
-    varsorts := vars' Σ ;
+    tvars := vars' Σ ;
     vars_dec := vars_dec (vars' Σ) ;
   |};
   prime_rel := _ ;
@@ -240,12 +240,7 @@ Proof.
 Qed.
 
 Definition varsum [Σ] (X Y : Vars Σ) : Vars Σ := {|
-  varnames := varnames X + varnames Y ;
-  varsorts v :=
-    match v with
-    | Datatypes.inl x => varsorts x
-    | Datatypes.inr y => varsorts y
-    end ;
+  tvars := tagged_sum X Y ;
   vars_dec := sum_eqdec (vars_dec X) (vars_dec Y)
 |}.
 
@@ -261,14 +256,13 @@ Arguments Init {Σ}.
 (* Arguably, Env should be defined in a similar way … but I don’t quite see the
   advantage. *)
 Definition Env [Σ] (X : Vars Σ) (A : Sorts Σ -> Type) :=
-  ∀ (x : X), A (varsorts x).
+  ∀ (x : X), A (get_tag x).
 
 Equations alg_exp_funcs {Σ : FOSig} {X : Vars Σ}
-    (A : Algebra Σ) (θ : Env X A) w s (F : Funcs (SigExpansion Σ X) w s)
-    : HVec (interp_sorts A) w -> interp_sorts A s :=
-  alg_exp_funcs _ _ [] s (Datatypes.inr C) := λ _, rew (proj2_sig C) in θ (proj1_sig C) ;
-  alg_exp_funcs _ _ [] _ (Datatypes.inl F) := interp_funcs A F ;
-  alg_exp_funcs _ _ (_::_) _ F := interp_funcs A F .
+    (A : Algebra Σ) (θ : Env X A) (F : Funcs (SigExpansion Σ X) )
+    : HVec (interp_sorts A) (ar F) -> interp_sorts A (res F) :=
+  alg_exp_funcs _ _ (Datatypes.inr C) := λ _, θ C ;
+  alg_exp_funcs _ _ (Datatypes.inl F) := interp_funcs A F .
 
 Global Transparent alg_exp_funcs.
 
