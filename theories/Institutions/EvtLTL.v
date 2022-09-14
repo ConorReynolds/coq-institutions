@@ -17,15 +17,15 @@ Definition MacEVT2LTL_Sig : Sig[MacEVT] ⟶ Sig[LTL.LTL].
   unshelve refine {|
     fobj := λ Σ : Sig[MacEVT], {| LTL.base := base (evt_sig Σ) ; LTL.vars := vars (evt_sig Σ) |} : Sig[LTL.LTL] ;
     fmap := λ A B σ, _ ;
-  |}; repeat intro.
+  |}; cbn in *; repeat intro.
   - unshelve refine {|
       LTL.on_base := _ ;
       LTL.on_vars := _ ;
     |}.
-    + cbn in *. exact (on_base (fst σ)).
-    + cbn in *. exact (@on_vars _ _ (fst σ)).
-  - cbn in *. unfold id_LTLSig. cbn in *. f_equal.
-  - cbn in *. destruct f, g; reflexivity.
+    + exact (on_base (fst σ)).
+    + exact (@on_vars _ _ (fst σ)).
+  - reflexivity.
+  - destruct f, g; reflexivity.
 Defined.
 
 Definition MacEVT2LTL_Mod : Mod[MacEVT] ⟹ Mod[LTL.LTL] ◯ MacEVT2LTL_Sig^op.

@@ -1,26 +1,29 @@
 Require Import Category.Theory.
 
 Require Import Core.Basics.
+Require Import Core.Tagged.
 Require Import Core.HVec.
 Require Import FOL.Signature.
 
+Require Import Coq.Program.Equality.
+
 Record Algebra (Σ : Signature) := {
   interp_sorts :> Sorts Σ -> Type ;
-  interp_funcs : ∀ w s, Funcs Σ w s -> HVec interp_sorts w -> interp_sorts s ;
-  interp_preds : ∀ w, Preds Σ w -> HVec interp_sorts w -> Prop ;
+  interp_funcs (F : Funcs Σ) : HVec interp_sorts (ar F) -> interp_sorts (res F) ;
+  interp_preds (P : Preds Σ) : HVec interp_sorts (arP P) -> Prop ;
 }.
 
 Arguments interp_sorts {Σ}.
-Arguments interp_funcs {Σ} A {w s} F args : rename.
-Arguments interp_preds {Σ} A {w} P args : rename.
+Arguments interp_funcs {Σ} A F args : rename.
+Arguments interp_preds {Σ} A P args : rename.
 
 Definition Ctx (Σ : Signature) := list (Sorts Σ).
 
 Lemma eq_algebra Σ (A A' : Algebra Σ)
   (p : interp_sorts A = interp_sorts A')
-  (q : rew [λ interp, ∀ w s, Funcs Σ w s -> HVec interp w -> interp s] p
+  (q : rew [λ interp, ∀ F, HVec interp (ar F) -> interp (res F)] p
         in (@interp_funcs Σ A) = @interp_funcs Σ A')
-  (r : rew [λ interp, ∀ w, Preds Σ w -> HVec interp w -> Prop] p
+  (r : rew [λ interp, ∀ P, HVec interp (arP P) -> Prop] p
         in (@interp_preds Σ A) = @interp_preds Σ A')
   : A = A'.
 Proof.
@@ -33,14 +36,14 @@ Variables (Σ : Signature) (Γ : Ctx Σ).
 
 Inductive Term : Sorts Σ -> Type :=
 | var  : ∀ s, member s Γ -> Term s
-| term : ∀ w s, Funcs Σ w s -> HVec Term w -> Term s.
+| term : ∀ F : Funcs Σ, HVec Term (ar F) -> Term (res F).
 
-Derive Signature NoConfusion NoConfusionHom for Term.
+Derive Signature NoConfusion for Term.
 
 End Term.
 
 Arguments var {Σ Γ s}.
-Arguments term {Σ Γ w s}.
+Arguments term {Σ Γ}.
 
 (* The other way of representing a function ∏ᵢ Aᵢ ⟶ Aₛ *)
 Fixpoint Curried {I : Type} (A : I -> Type) w s : Type :=
@@ -72,13 +75,12 @@ Variable P : ∀ (s : Sorts Σ), Term Σ Γ s -> Prop.
 Hypothesis var_case : ∀ (s : Sorts Σ) (m : member s Γ),
   P s (var m).
 Hypothesis term_case :
-  ∀ (w : Arity Σ) (s : Sorts Σ)
-    (F : Funcs Σ w s) (args : HVec (Term Σ Γ) w),
-  HForall P args -> P s (term F args).
+  ∀ (F : Funcs Σ) (args : HVec (Term Σ Γ) (ar F)),
+  HForall P args -> P (res F) (term F args).
 
 Equations term_ind' s (t : Term Σ Γ s) : P s t := {
   term_ind' s (var i) := var_case _ i ;
-  term_ind' s (term F args) := term_case _ _ F args (map_term_ind' _ args)
+  term_ind' s (term F args) := term_case F args (map_term_ind' _ args)
 } where map_term_ind' w (args : HVec (Term Σ Γ) w) : HForall P args := {
   map_term_ind' s ⟨⟩ := I ;
   map_term_ind' s (t ::: ts) := conj (term_ind' _ t) (map_term_ind' _ ts)
@@ -99,22 +101,32 @@ Local Notation x₉ := (HS x₈).
 
 Record SignatureMorphismᵈ (Σ Σ' : Signature) : Type := {
   on_sortsᵈ :> Sorts Σ -> Sorts Σ' ;
-  on_funcsᵈ : ∀ w s, Funcs Σ w s -> Term Σ' (map on_sortsᵈ w) (on_sortsᵈ s) ;
-  on_predsᵈ : ∀ w, Preds Σ w -> Preds Σ' (map on_sortsᵈ w) ;
+  on_funcsᵈ (F : Funcs Σ) : Term Σ' (map on_sortsᵈ (ar F)) (on_sortsᵈ (res F)) ;
+  on_predsᵈ : tagged_morphism (map on_sortsᵈ) (Preds Σ) (Preds Σ') ;
 }.
 
 Arguments on_sortsᵈ {Σ Σ'} σ s : rename.
-Arguments on_funcsᵈ {Σ Σ'} σ {w s} F : rename.
-Arguments on_predsᵈ {Σ Σ'} σ {w} P : rename.
+Arguments on_funcsᵈ {Σ Σ'} σ F : rename.
+Arguments on_predsᵈ {Σ Σ'} σ : rename.
+
+Definition reindexo [Σ Σ'] [A' : Algebra Σ'] (σ : SignatureMorphism Σ Σ') {F} : HVec (A' ∘ σ) (ar F) -> HVec A' (ar (on_funcs σ F)).
+  intros.
+  pose (reindex σ X).
+  rewrite tagged_morphism_commutes.
+  now destruct (Funcs Σ F).
+Defined.
 
 Section ReductAlgebra.
 Variables (Σ Σ' : Signature) (σ : SignatureMorphism Σ Σ').
 
-Definition ReductAlgebra (A' : Algebra Σ') : Algebra Σ := {|
+Program Definition ReductAlgebra (A' : Algebra Σ') : Algebra Σ := {|
   interp_sorts := interp_sorts A' ∘ σ ;
-  interp_funcs := λ w s F, interp_funcs A' (on_funcs σ F) ∘ reindex σ ;
-  interp_preds := λ w P, interp_preds A' (on_preds σ P) ∘ reindex σ ;
+  interp_funcs := λ F, interp_funcs A' (on_funcs σ F) ∘ reindex σ ;
+  interp_preds := λ P, interp_preds A' (on_preds σ P) ∘ reindex σ ;
 |}.
+Next Obligation. rewrite tagged_morphism_commutes; reflexivity. Defined.
+Next Obligation. rewrite tagged_morphism_commutes; reflexivity. Defined.
+Next Obligation. rewrite tagged_morphism_commutes; reflexivity. Defined.
 
 End ReductAlgebra.
 
@@ -129,16 +141,22 @@ Fixpoint reindex_member
   | @HS _ _ i' is m' => @HS _ (f i) (f i') (map f is) (reindex_member f m')
   end.
 
-Equations on_terms
+Equations? on_terms
     {Σ Σ' : Signature} {Γ : Ctx Σ} (σ : SignatureMorphism Σ Σ')
     [s : Sorts Σ] (t : Term Σ Γ s) : Term Σ' (map σ Γ) (σ s) := {
   on_terms σ (var i) := var (reindex_member σ i) ;
-  on_terms σ (term F args) := term (on_funcs σ F) (map_on_terms σ args) }
+  on_terms σ (term F args) :=
+    rew _ in term (on_funcs σ F)
+      (rew [λ s, HVec (Term Σ' (map σ Γ)) s] _ in map_on_terms σ args) }
 where map_on_terms {Σ Σ' : Signature} {Γ : Ctx Σ} {w : Arity Σ}
     (σ : SignatureMorphism Σ Σ') (args : HVec (Term Σ Γ) w)
     : HVec (Term Σ' (map σ Γ)) (map σ w) := {
   map_on_terms σ ⟨⟩ := ⟨⟩ ;
   map_on_terms σ (t ::: ts) := on_terms σ t ::: map_on_terms σ ts }.
+
+  - rewrite tagged_morphism_commutes; reflexivity.
+  - rewrite tagged_morphism_commutes; reflexivity.
+Defined.
 
 Lemma map_on_terms_hmap
     (Σ Σ' : Signature) (Γ : Ctx Σ) (w : Arity Σ)
@@ -152,7 +170,7 @@ Qed.
 Definition TermAlgebra Σ Γ : Algebra Σ := {|
   interp_sorts := Term Σ Γ ;
   interp_funcs := @term Σ Γ ;
-  interp_preds := λ w P args, False ;
+  interp_preds := λ P args, False ;
 |}.
 
 Equations eval_term {Σ : Signature} (A : Algebra Σ)
@@ -205,22 +223,22 @@ Context {Σ : Signature}.
 Context (A B : Algebra Σ).
 
 Class AlgHom (h : ∀ s, A s -> B s) := 
-  alg_hom_commutes : ∀ w s (F : Funcs Σ w s) (args : HVec A w),
-    h s (interp_funcs A F args) = interp_funcs B F (hmap h args) .
+  alg_hom_commutes : ∀ (F : Funcs Σ) (args : HVec A (ar F)),
+    h (res F) (interp_funcs A F args) = interp_funcs B F (hmap h args) .
 
 End AlgHom.
 
-Arguments alg_hom_commutes {Σ A B p h w s} F args : rename.
+Arguments alg_hom_commutes {Σ A B p h} F args : rename.
 
 Global Instance eval_term_hom Σ A Γ env :
   AlgHom (TermAlgebra Σ Γ) A (λ s t, @eval_term Σ A Γ s t env).
 Proof.
-  intros w s F ts. simpl interp_funcs. simp eval_term.
+  intros F ts. simpl interp_funcs. simp eval_term.
   f_equal; apply map_eval_term_hmap.
 Qed.
 
 Global Instance id_hom Σ (A : Algebra Σ) :
   AlgHom A A (λ _ x, x).
 Proof.
-  intros w s F args; now rewrite hmap_id.
+  intros F args; now rewrite hmap_id.
 Qed.

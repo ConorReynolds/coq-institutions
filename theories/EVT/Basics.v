@@ -1,6 +1,7 @@
 Require Import Category.Theory.
 
 Require Import Core.Basics.
+Require Import Core.Tagged.
 Require Import Core.HVec.
 Require Import FOL.Signature.
 Require Import FOL.Algebra.
@@ -34,18 +35,12 @@ Program Definition reindexing_functor {I J} (u : I -> J) : Indexed J ⟶ Indexed
   fmap := λ X Y f i x, f (u i) x ;
 |}.
 
-(** Variables are here rendered as a type [varnames] together with a function
-    [varsorts] which assigns each variable a sort. We also require that
-    [varnames] has decidable equality (otherwise the envplus construction won’t
-    work). *)
 Record Vars Σ := { 
-  varnames :> Type ;
-  varsorts :> varnames -> Sorts Σ ;
-  vars_dec : EqDec varnames eq ;
+  tvars :> Tagged (Sorts Σ);
+  vars_dec : EqDec (tagged_data tvars) eq ;
 }.
 
-Arguments varnames [Σ].
-Arguments varsorts [Σ _].
+Arguments tvars [Σ].
 Arguments vars_dec [Σ].
 
 (*****************************************************************************)
@@ -99,7 +94,7 @@ Qed.
    Their way of spelling out the proofs such that they compute better works
    quite well here too. *)
 Definition var_morphism [A B : FOSig] (σ : Sorts A -> Sorts B) (X : Vars A) (Y : Vars B) :=
-  { f : X -> Y | ∀ x : X, varsorts (f x) = σ (varsorts x) }.
+  tagged_morphism σ X Y.
 
 Definition var_morphism_map
     [A B : FOSig] (σ : Sorts A -> Sorts B) (X : Vars A) (Y : Vars B)
@@ -156,7 +151,7 @@ Proof.
 Qed.
 
 Lemma varmap_id_on_index [Σ] [X Y : Vars Σ] (f : var_morphism idmap X Y) :
-  ∀ x, varsorts (f x) = varsorts x.
+  ∀ x, get_tag (f x) = get_tag x.
 Proof.
   intros ?; rewrite <- (proj2_sig f); auto.
 Qed.
@@ -180,25 +175,28 @@ Proof.
   exact (prime_rel Σ).
 Defined.
 
+(* Idea: create injection [Tagged A ↪ Tagged (List A * A)] and then use regular
+   tagged sum *)
+
+Definition lift_vars [Σ] (X : Vars Σ) : Tagged (list (Sorts Σ) * Sorts Σ) := {|
+  tagged_data := tagged_data X ;
+  get_tag x := ([], get_tag x) ;
+|}.
+
 Definition SigExpansion (Σ : FOSig) (X : Vars Σ) : FOSig := {|
   Sorts := Sorts Σ ;
-  Funcs := λ w s, match w with
-                  | [] => (Funcs Σ [] s + { x | @varsorts Σ X x = s })%type
-                  | _  => Funcs Σ w s
-                  end%type ;
+  Funcs := tagged_sum (Funcs Σ) (lift_vars X) ;
   Preds := Preds Σ ;
 |}.
 
 Program Definition EvtSigExpansion (Σ : EvtSignature) (X : Vars Σ) : EvtSignature := {|
   base := SigExpansion Σ X ;
   vars := {|
-    varnames := vars Σ ;
-    varsorts := vars Σ ;
+    tvars := vars Σ ;
     vars_dec := vars_dec (vars Σ) ;
   |} ;
   vars' := {|
-    varnames := vars' Σ ;
-    varsorts := vars' Σ ;
+    tvars := vars' Σ ;
     vars_dec := vars_dec (vars' Σ) ;
   |};
   prime_rel := _ ;
@@ -242,12 +240,7 @@ Proof.
 Qed.
 
 Definition varsum [Σ] (X Y : Vars Σ) : Vars Σ := {|
-  varnames := varnames X + varnames Y ;
-  varsorts v :=
-    match v with
-    | Datatypes.inl x => varsorts x
-    | Datatypes.inr y => varsorts y
-    end ;
+  tvars := tagged_sum X Y ;
   vars_dec := sum_eqdec (vars_dec X) (vars_dec Y)
 |}.
 
@@ -263,14 +256,13 @@ Arguments Init {Σ}.
 (* Arguably, Env should be defined in a similar way … but I don’t quite see the
   advantage. *)
 Definition Env [Σ] (X : Vars Σ) (A : Sorts Σ -> Type) :=
-  ∀ (x : X), A (varsorts x).
+  ∀ (x : X), A (get_tag x).
 
 Equations alg_exp_funcs {Σ : FOSig} {X : Vars Σ}
-    (A : Algebra Σ) (θ : Env X A) w s (F : Funcs (SigExpansion Σ X) w s)
-    : HVec (interp_sorts A) w -> interp_sorts A s :=
-  alg_exp_funcs _ _ [] s (Datatypes.inr C) := λ _, rew (proj2_sig C) in θ (proj1_sig C) ;
-  alg_exp_funcs _ _ [] _ (Datatypes.inl F) := interp_funcs A F ;
-  alg_exp_funcs _ _ (_::_) _ F := interp_funcs A F .
+    (A : Algebra Σ) (θ : Env X A) (F : Funcs (SigExpansion Σ X) )
+    : HVec (interp_sorts A) (ar F) -> interp_sorts A (res F) :=
+  alg_exp_funcs _ _ (Datatypes.inr C) := λ _, θ C ;
+  alg_exp_funcs _ _ (Datatypes.inl F) := interp_funcs A F .
 
 Global Transparent alg_exp_funcs.
 

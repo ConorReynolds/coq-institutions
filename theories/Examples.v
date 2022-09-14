@@ -1,6 +1,7 @@
 Require Import Category.Theory.
 
 Require Import Core.Basics.
+Require Import Core.Tagged.
 Require Import Core.HVec.
 Require Import FOL.Signature.
 Require Import FOL.Algebra.
@@ -19,15 +20,27 @@ Require Import Datatypes.
 Require Import Coq.Bool.Bool.
 
 Inductive stack_sorts := elem | stack.
+Inductive stack_funcs_names := empty | inhab | push | pop.
+Inductive stack_preds_names := is_empty.
 
-Inductive stack_funcs : list stack_sorts -> stack_sorts -> Type :=
-| empty : stack_funcs [] stack
-| inhab : stack_funcs [] elem
-| push  : stack_funcs [elem;stack] stack
-| pop   : stack_funcs [stack] stack.
+Definition stack_funcs : Tagged (list stack_sorts * stack_sorts) := {|
+  tagged_data := stack_funcs_names ;
+  get_tag F :=
+    match F with
+    | empty => ([], stack)
+    | inhab => ([], elem)
+    | push => ([elem; stack], stack)
+    | pop => ([stack], stack)
+    end ;
+|}.
 
-Inductive stack_preds : list stack_sorts -> Type :=
-| is_empty : stack_preds [stack].
+Definition stack_preds : Tagged (list stack_sorts) := {|
+  tagged_data := stack_preds_names ;
+  get_tag P :=
+    match P with
+    | is_empty => [stack]
+    end ;
+|}.
 
 Definition stack_sig : Signature := {|
   Sorts := stack_sorts ;
@@ -41,11 +54,11 @@ Definition stack_nat_is (s : Sorts stack_sig) : Type :=
   | stack => list nat
   end.
 
-Local Notation stack_fn := (Curried stack_nat_is).
-Local Notation stack_args := (HVec stack_nat_is).
+Local Notation stack_fn := (Curried stack_nat_is) (only parsing).
+Local Notation stack_args := (HVec stack_nat_is) (only parsing).
 
-Definition stack_nat_if w s (F : Funcs stack_sig w s) :=
-  uncurry match F with
+Definition stack_nat_if (F : Funcs stack_sig) : stack_args (ar F) → stack_nat_is (res F) :=
+  uncurry match F return (Curried stack_nat_is (fst (Funcs stack_sig F)) (snd (Funcs stack_sig F))) with
   | push  => List.cons    : stack_fn [elem;stack] stack
   | pop   => @List.tl nat : stack_fn [stack] stack
   | empty => List.nil     : stack_fn [] stack
@@ -57,7 +70,7 @@ Equations stack_nat_is_empty (args : stack_args [stack]) : Prop :=
 
 Global Transparent stack_nat_is_empty.
 
-Definition stack_nat_ip w (P : Preds stack_sig w) :=
+Definition stack_nat_ip (P : Preds stack_sig) : HVec stack_nat_is (Preds stack_sig P) → Prop :=
   match P with
   | is_empty => stack_nat_is_empty
   end.
@@ -145,18 +158,26 @@ End Substitution.
 (** Boolean signature (algebras will be defined via the NAND signature) *)
 Definition bool_sorts := unit.
 
-Inductive bool_funcs : list bool_sorts -> bool_sorts -> Type :=
-| AND    : bool_funcs [tt;tt] tt
-| OR     : bool_funcs [tt;tt] tt
-| IMP    : bool_funcs [tt;tt] tt
-| NOT    : bool_funcs [tt]    tt
-| bTRUE  : bool_funcs []      tt
-| bFALSE : bool_funcs []      tt.
+Inductive bool_funcs_names :=
+| AND | OR | IMP | NOT | bTRUE | bFALSE.
+
+Definition bool_funcs : Tagged (list bool_sorts * bool_sorts) := {|
+  tagged_data := bool_funcs_names ;
+  get_tag F :=
+    match F with
+    | AND => ([tt;tt], tt)
+    | OR => ([tt;tt], tt)
+    | IMP => ([tt;tt], tt)
+    | NOT => ([tt], tt)
+    | bTRUE => ([], tt)
+    | bFALSE => ([], tt)
+    end ;
+|}.
 
 Definition bool_sig : Signature := {|
   Sorts := bool_sorts ;
   Funcs := bool_funcs ;
-  Preds := λ _, Empty_set ;
+  Preds := tagged_empty _ ;
 |}.
 
 (*****************************************************************************)
@@ -164,15 +185,23 @@ Definition bool_sig : Signature := {|
 
 Definition nand_sorts := unit.
 
-Inductive nand_funcs : list nand_sorts -> nand_sorts -> Type :=
-| NAND   : nand_funcs [tt;tt] tt
-| nTRUE  : nand_funcs []      tt
-| nFALSE : nand_funcs []      tt.
+Inductive nand_funcs_names : Type :=
+| NAND | nTRUE | nFALSE.
+
+Definition nand_funcs : Tagged (list nand_sorts * nand_sorts) := {|
+  tagged_data := nand_funcs_names ;
+  get_tag F :=
+    match F with
+    | NAND => ([tt;tt], tt)
+    | nTRUE => ([], tt)
+    | nFALSE => ([], tt)
+    end ;
+|}.
 
 Definition nand_sig : Signature := {|
   Sorts := nand_sorts ;
   Funcs := nand_funcs ;
-  Preds := λ _, Empty_set ;
+  Preds := tagged_empty _ ;
 |}.
 
 Definition nand_is (_ : Sorts nand_sig) : Type := bool.
@@ -184,17 +213,17 @@ Local Notation nand_fn := (Curried nand_is).
 Definition nand : nand_fn [tt;tt] tt :=
   λ x y, negb (x && y).
 
-Definition nand_io w s (F : Funcs nand_sig w s) :=
-  uncurry match F with
+Definition nand_if (F : Funcs nand_sig) :=
+  uncurry match F return (Curried nand_is (fst (Funcs nand_sig F)) (snd (Funcs nand_sig F))) with
   | NAND   => nand
-  | nTRUE  => true  : nand_fn [] tt
-  | nFALSE => false : nand_fn [] tt
+  | nTRUE  => true
+  | nFALSE => false
   end.
 
 Definition nand_alg : Mod[INS_FOPEQ] nand_sig := {|
   interp_sorts := nand_is ;
-  interp_funcs := nand_io ;
-  interp_preds := λ _ _ _, False
+  interp_funcs := nand_if ;
+  interp_preds := λ _ _, False
 |}.
 
 (* Instead of repeating ourselves, we can instead use a derived signature
@@ -211,8 +240,8 @@ Local Notation nt := (term (Σ := nand_sig)).
  *  -  x ∨ y  ≡  (x ⊼ x) ⊼ (y ⊼ y)
  *  -  x ∧ y  ≡  (x ⊼ y) ⊼ (x ⊼ y)
  *)
-Equations b2n_funcs {w s} (F : Funcs bool_sig w s)
-                  : Term nand_sig (map idmap w) s :=
+Equations b2n_funcs (F : Funcs bool_sig)
+                  : Term nand_sig (map idmap (ar F)) (res F) :=
   b2n_funcs NOT    := nt NAND ⟨ var x₁ ; var x₁ ⟩ ;
   b2n_funcs IMP    := nt NAND ⟨ var x₁ ; nt NAND ⟨ var x₂ ; var x₂ ⟩ ⟩ ;
   b2n_funcs OR     := nt NAND ⟨ nt NAND ⟨ var x₁ ; var x₁ ⟩ ; nt NAND ⟨ var x₂ ; var x₂ ⟩ ⟩ ;
@@ -224,39 +253,40 @@ Global Transparent b2n_funcs.
 
 Arguments b2n_funcs : clear implicits.
 
-Definition bool_to_nandᵈ : SignatureMorphismᵈ bool_sig nand_sig := {|
-  on_sortsᵈ := idmap : Sorts bool_sig -> Sorts nand_sig ;
-  on_funcsᵈ := b2n_funcs ;
-  on_predsᵈ := λ w P, P ;
-|}.
-
+Definition bool_to_nandᵈ : SignatureMorphismᵈ bool_sig nand_sig.
+  refine {|
+    on_sortsᵈ := idmap : Sorts bool_sig -> Sorts nand_sig ;
+    on_funcsᵈ := b2n_funcs ;
+    on_predsᵈ := exist _ idmap _ ;
+  |}; contradiction.
+Defined.
 (* Notation bool_to_nand := (collapse_derived bool_to_nandᵈ). *)
 
 Definition bool_alg : Mod[INS_FOPEQ] bool_sig := {|
   interp_sorts := interp_sorts nand_alg : Sorts bool_sig -> Type ;
-  interp_funcs := λ w s F,
+  interp_funcs F :=
     eval_term nand_alg (on_funcsᵈ bool_to_nandᵈ F) ∘ reindex idmap ;
-  interp_preds := λ _ _ _, False ;
+  interp_preds := λ _ _, False ;
 |}.
 
 Definition bool_is (_ : Sorts bool_sig) := bool.
 
 Local Notation bool_fn := (Curried bool_is).
 
-Definition bool_if [w s] (F : Funcs bool_sig w s) :=
-  uncurry match F with
-  | NOT => negb : bool_fn [tt] tt
-  | IMP => implb : bool_fn [tt;tt] tt
-  | OR => orb : bool_fn [tt;tt] tt
-  | AND => andb : bool_fn [tt;tt] tt
-  | bTRUE => true : bool_fn [] tt
-  | bFALSE => false : bool_fn [] tt
+Definition bool_if (F : Funcs bool_sig) :=
+  uncurry match F return (bool_fn (fst (Funcs bool_sig F)) (snd (Funcs bool_sig F))) with
+  | NOT => negb
+  | IMP => implb
+  | OR => orb
+  | AND => andb
+  | bTRUE => true
+  | bFALSE => false
   end.
 
 Definition bool_alg' : Mod[INS_FOPEQ] bool_sig := {|
   interp_sorts := bool_is ;
   interp_funcs := bool_if ;
-  interp_preds := λ _ _ _, False ;
+  interp_preds := λ _ _, False ;
 |}.
 
 Local Notation nand_term := (term (Σ := nand_sig)).
@@ -295,9 +325,9 @@ Definition trivial : Sen[INS_FOPEQ] nand_sig :=
 Definition exampleᵈ : Sen[INS_FOPEQ] nand_sig :=
   Forall (
     Equal (on_termsᵈ bool_to_nandᵈ
-            (bool_term IMP ⟨ bool_const bFALSE ; var x₁ ⟩
+            (bool_term IMP ⟨ bool_term bFALSE ⟨⟩ ; var x₁ ⟩
             : Term bool_sig [tt] tt))
-          (nand_const nTRUE)
+          (nand_term nTRUE ⟨⟩)
   ).
 
 (* Still no problems. *)
@@ -375,15 +405,32 @@ Qed. *)
 (*****************************************************************************)
 (** * EVT Examples *)
 
-Inductive nat_funcs : list unit -> unit -> Type :=
-| nat_zero : nat_funcs [] tt
-| nat_one  : nat_funcs [] tt
-| nat_plus : nat_funcs [tt;tt] tt
-| nat_sub  : nat_funcs [tt;tt] tt.
+Inductive nat_funcs_names :=
+| nat_zero | nat_one | nat_plus | nat_sub.
 
-Inductive nat_preds : list unit -> Type :=
-| nat_le : nat_preds [tt;tt]
-| nat_lt : nat_preds [tt;tt].
+Inductive nat_preds_names :=
+| nat_le | nat_lt.
+
+Definition nat_funcs : Tagged (list unit * unit) := {|
+  tagged_data := nat_funcs_names ;
+  get_tag F :=
+    match F with
+    | nat_zero => ([], tt)
+    | nat_one => ([], tt)
+    | nat_plus => ([tt;tt], tt)
+    | nat_sub => ([tt;tt], tt)
+    end ;
+|}.
+
+Definition nat_preds : Tagged (list unit) := {|
+  tagged_data := nat_preds_names ;
+  get_tag P :=
+    match P with
+    | nat_le => [tt;tt]
+    | nat_lt => [tt;tt]
+    end ;
+|}.
+
 
 Definition nat_sig : FOSig := {|
   Sorts := unit ;
@@ -393,8 +440,8 @@ Definition nat_sig : FOSig := {|
 
 Inductive mac_events := ML_out | ML_in.
 
-Inductive mac_vars : Type := d | n.
-Inductive mac_vars' : Type := d' | n'.
+Inductive mac_vars  := d | n.
+Inductive mac_vars' := d' | n'.
 
 Derive NoConfusion EqDec for mac_vars mac_vars'.
 
@@ -413,8 +460,8 @@ Definition mac_unprimed (x : mac_vars') : mac_vars :=
 Definition mac_sig_base : EvtSignature.
   unshelve refine {|
     base := nat_sig ;
-    vars  := {| varnames := mac_vars  ; varsorts x := tt : Sorts nat_sig |} ;
-    vars' := {| varnames := mac_vars' ; varsorts x := tt : Sorts nat_sig |} ;
+    vars  := {| tvars := {| tagged_data := mac_vars  ; get_tag x := tt : Sorts nat_sig |} |} ;
+    vars' := {| tvars := {| tagged_data := mac_vars' ; get_tag x := tt : Sorts nat_sig |} |} ;
     prime_rel := _ ;
   |}; [ apply mac_vars_EqDec | apply mac_vars'_EqDec | ].
   unshelve esplit; cbn.
@@ -430,46 +477,29 @@ Definition mac_sig_ltl := EvtSigExpansion mac_sig_base (vars mac_sig_base).
 
 Definition MacSen := EVT mac_sig_base.
 
-Local Notation nat_const_init :=
-  (λ c, term (Σ := mac_sig_init) (Γ := []) (w := []) (inl c) ⟨⟩) (only parsing).
-Local Notation mac_var_init :=
-  (λ x', term (Σ := mac_sig_init) (Γ := []) (w := []) (inr (exist _ x' eq_refl)) ⟨⟩) (only parsing).
+Local Notation nat_init := (λ c, term (Σ := mac_sig_init) (Γ := []) (inl c)) (only parsing).
+Local Notation mac_var_init := (λ x', term (Σ := mac_sig_init) (Γ := []) (inr x') ⟨⟩) (only parsing).
 Local Notation nat_const :=
-  (λ c, term (Σ := mac_sig_event) (Γ := []) (w := []) (inl c) ⟨⟩) (only parsing).
+  (λ c, term (Σ := mac_sig_event) (Γ := []) (inl c)) (only parsing).
 Local Notation mac_var :=
-  (λ x, term (Σ := mac_sig_event) (Γ := []) (w := []) (inr (exist _ (inl x) eq_refl)) ⟨⟩) (only parsing).
+  (λ x, term (Σ := mac_sig_event) (Γ := []) (inr (inl x))) (only parsing).
 Local Notation mac_var' :=
-  (λ x, term (Σ := mac_sig_event) (Γ := []) (w := []) (inr (exist _ (inr x) eq_refl)) ⟨⟩) (only parsing).
+  (λ x, term (Σ := mac_sig_event) (Γ := []) (inr (inr x))) (only parsing).
 Local Notation nat_const_ltl :=
-  (λ c, term (Σ := mac_sig_ltl) (Γ := []) (w := []) (inl c) ⟨⟩) (only parsing).
-Local Notation mac_var_ltl :=
-  (λ x, term (Σ := mac_sig_ltl) (Γ := []) (w := []) (inr (exist _ x eq_refl)) ⟨⟩) (only parsing).
+  (λ c, term (Σ := mac_sig_ltl) (Γ := []) (inl c)) (only parsing).
+Local Notation mac_var_ltl := (λ x', term (Σ := mac_sig_ltl) (Γ := []) (inr x')) (only parsing).
 
-Local Notation "F : w => s" :=
-  (term (Σ := mac_sig_event) (Γ := []) (w := w) (s := s) F) (at level 0).
+(* Local Notation "F : w => s" :=
+  (term (Σ := mac_sig_event) (Γ := []) (w := w) (s := s) F) (at level 0). *)
 
-Local Notation "F : w =[ Γ ]=> s" :=
-  (term (Σ := mac_sig_event) (Γ := Γ) (w := w) (s := s) F) (at level 0).
+(* Local Notation "F : w =[ Γ ]=> s" :=
+  (term (Σ := mac_sig_event) (Γ := Γ) (w := w) (s := s) F) (at level 0). *)
 
-Local Notation "P ⊆ w" :=
-  (Pred (Σ := mac_sig_event) (w := w) P) (at level 0).
+(* Local Notation "P ⊆ Σ" :=
+  (Pred (Σ := mac_sig_event) (w := w) P) (at level 0). *)
 
 Definition interp_nat_sorts (_ : Sorts nat_sig) : Type :=
   nat.
-
-Definition interp_nat_plus : Curried interp_nat_sorts [tt;tt] tt :=
-  plus.
-
-Definition interp_nat_sub : Curried interp_nat_sorts [tt;tt] tt :=
-  Nat.sub.
-
-Definition interp_nat_zero : Curried interp_nat_sorts [] tt :=
-  0%nat.
-
-Definition interp_nat_one : Curried interp_nat_sorts [] tt :=
-  1%nat.
-
-Hint Unfold interp_nat_sorts interp_nat_plus interp_nat_sub interp_nat_zero interp_nat_one.
 
 Local Notation Args := (HVec interp_nat_sorts) (only parsing).
 
@@ -481,15 +511,15 @@ Equations interp_nat_lt (args : Args [tt;tt]) : Prop :=
 
 Transparent interp_nat_le interp_nat_lt.
 
-Definition interp_nat_funcs w s (F : Funcs nat_sig w s) :=
-  uncurry match F with
-  | nat_zero => interp_nat_zero
-  | nat_one  => interp_nat_one
-  | nat_plus => interp_nat_plus
-  | nat_sub  => interp_nat_sub
+Definition interp_nat_funcs (F : Funcs nat_sig) :=
+  uncurry match F return (Curried interp_nat_sorts (fst (Funcs nat_sig F)) (snd (Funcs nat_sig F))) with
+  | nat_zero => 0%nat
+  | nat_one  => 1%nat
+  | nat_plus => Nat.add
+  | nat_sub  => Nat.sub
   end.
 
-Definition interp_nat_preds w (P : Preds nat_sig w) :=
+Definition interp_nat_preds (P : Preds nat_sig) : HVec interp_nat_sorts (Preds nat_sig P) → Prop :=
   match P with
   | nat_le => interp_nat_le
   | nat_lt => interp_nat_lt
@@ -510,21 +540,21 @@ Definition mac_sig : MachineSig := {|
 Definition machine : Sen[EvtLTL] mac_sig.
   cbn; left; unfold MachineSen.
   split.
-  - exact (Equal (mac_var_init n') (nat_const_init nat_zero)).
+  - exact (Equal (mac_var_init n') (nat_init nat_zero ⟨⟩)).
   - intros; refine (
       match X with
       | ML_in =>
           (* n ≔ n + 1 on the condition that n < d *)
-          And ((nat_lt ⊆ [tt;tt]) ⟨ mac_var n ; mac_var d ⟩)
+          And (Pred (Σ := mac_sig_event) nat_lt ⟨ mac_var n ⟨⟩ ; mac_var d ⟨⟩ ⟩)   
               (Equal
-                (mac_var' n')
-                ((nat_plus : [tt;tt] => tt) ⟨ mac_var n ; nat_const nat_one ⟩))
+                (mac_var' n' ⟨⟩)
+                (term (Σ := mac_sig_event) (inl nat_plus) ⟨ mac_var n ⟨⟩ ; nat_const nat_one ⟨⟩ ⟩))
       | ML_out =>
           (* n ≔ n - 1 on the condition that 0 < n *)
-          And ((nat_lt ⊆ [tt;tt]) ⟨ nat_const nat_zero ; mac_var n ⟩)
+          And (Pred (Σ := mac_sig_event) nat_lt ⟨ nat_const nat_zero ⟨⟩ ; mac_var n ⟨⟩ ⟩)
               (Equal
-                (mac_var' n')
-                ((nat_sub : [tt;tt] => tt) ⟨ mac_var n ; nat_const nat_one ⟩))
+                (mac_var' n' ⟨⟩)
+                (term (Σ := mac_sig_event) (inl nat_sub) ⟨ mac_var n ⟨⟩ ; nat_const nat_one ⟨⟩ ⟩))
       end).
 Defined.
 
@@ -577,30 +607,30 @@ Definition ltl_constraint₁ : Sen[EvtLTL] mac_sig.
   right.
   apply LTL.Globally, LTL.FOLSen; cbn.
   exact (And
-    (Pred (Σ := mac_sig_ltl) nat_le ⟨ nat_const_ltl nat_zero ; mac_var_ltl n ⟩)
-    (Pred (Σ := mac_sig_ltl) nat_le ⟨ mac_var_ltl n ; mac_var_ltl d ⟩)).
+    (Pred (Σ := mac_sig_ltl) nat_le ⟨ nat_const_ltl nat_zero ⟨⟩ ; mac_var_ltl n ⟨⟩ ⟩)
+    (Pred (Σ := mac_sig_ltl) nat_le ⟨ mac_var_ltl n ⟨⟩ ; mac_var_ltl d ⟨⟩ ⟩)).
 Defined.
 
 (* F(n = 1) *)
 Definition ltl_constraint₂ : Sen[EvtLTL] mac_sig.
   right.
   apply LTL.Finally, LTL.FOLSen; cbn.
-  exact (Equal (mac_var_ltl n) (nat_const_ltl nat_one)).
+  exact (Equal (mac_var_ltl n ⟨⟩) (nat_const_ltl nat_one ⟨⟩)).
 Defined.
 
 (* GF(n = 0); a kind of liveness property *)
 Definition ltl_constraint₃ : Sen[EvtLTL] mac_sig.
   right.
   apply LTL.Globally, LTL.Finally, LTL.FOLSen; cbn.
-  exact (Equal (mac_var_ltl n) (nat_const_ltl nat_zero)).
+  exact (Equal (mac_var_ltl n ⟨⟩) (nat_const_ltl nat_zero ⟨⟩)).
 Defined.
 
 (* F((n = 0) U (n = 1)) *)
 Definition ltl_constraint₄ : Sen[EvtLTL] mac_sig.
   right.
   apply LTL.Finally, LTL.Until; apply LTL.FOLSen.
-  - exact (Equal (mac_var_ltl n) (nat_const_ltl nat_zero)).
-  - exact (Equal (mac_var_ltl n) (nat_const_ltl nat_one)).
+  - exact (Equal (mac_var_ltl n ⟨⟩) (nat_const_ltl nat_zero ⟨⟩)).
+  - exact (Equal (mac_var_ltl n ⟨⟩) (nat_const_ltl nat_one ⟨⟩)).
 Defined.
 
 (* G((n = 0) ⇒ X(n = 1)) *)
@@ -608,17 +638,17 @@ Definition ltl_constraint₅ : Sen[EvtLTL] mac_sig.
   right.
   apply LTL.Globally, LTL.Impl.
   - apply LTL.FOLSen; cbn.
-    exact (Equal (mac_var_ltl n) (nat_const_ltl nat_zero)).
+    exact (Equal (mac_var_ltl n ⟨⟩) (nat_const_ltl nat_zero ⟨⟩)).
   - apply LTL.Next; apply LTL.FOLSen; cbn.
-    exact (Equal (mac_var_ltl n) (nat_const_ltl nat_one)).
+    exact (Equal (mac_var_ltl n ⟨⟩) (nat_const_ltl nat_one ⟨⟩)).
 Defined.
 
 (* (n = 0) W (n = 1); basically the same as ltl_constraint₄ *)
 Definition ltl_constraint₆ : Sen[EvtLTL] mac_sig.
   right.
   apply LTL.WeakUntil; apply LTL.FOLSen.
-  - exact (Equal (mac_var_ltl n) (nat_const_ltl nat_zero)).
-  - exact (Equal (mac_var_ltl n) (nat_const_ltl nat_one)).
+  - exact (Equal (mac_var_ltl n ⟨⟩) (nat_const_ltl nat_zero ⟨⟩)).
+  - exact (Equal (mac_var_ltl n ⟨⟩) (nat_const_ltl nat_one ⟨⟩)).
 Defined.
 
 Theorem constraint_correct₁ : trace ⊨ ltl_constraint₁.
@@ -649,7 +679,7 @@ Proof.
   cbn; autounfold.
   left.               (* φ1 U φ2 true in first state *)
   exists 1%nat; cbn.  (* φ1 stays true until the second state *)
-  cbn; split; auto.   (* prove the above claims *)
+  split; auto.        (* prove the above claims *)
 Qed.
 
 Theorem constraint_correct₅ : trace ⊨ ltl_constraint₅.

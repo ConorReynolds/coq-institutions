@@ -2,6 +2,7 @@ Require Import Category.Lib.
 Require Import Category.Theory.
 
 Require Import Core.Basics.
+Require Import Core.Tagged.
 Require Import Core.HVec.
 Require Export FOL.Signature.
 Require Export FOL.Algebra.
@@ -19,42 +20,51 @@ Import EqNotations.
 (*****************************************************************************)
 (** * First-Order Signature Category *)
 
+Definition id_arityF_tm [T : Type] (X : Tagged (list T * T)) :
+  tagged_morphism (lift_sig idmap) X X.
+Proof.
+  refine (exist _ idmap _); intros.
+  unfold lift_sig. rewrite map_id.
+  now induction (X x).
+Defined.
+
+Definition id_arityP_tm [T : Type] (X : Tagged (list T)) :
+  tagged_morphism (map idmap) X X.
+Proof.
+  refine (exist _ idmap _); intros.
+  now rewrite map_id.
+Defined.
+
 Definition id_FOSig (Σ : Signature) : SignatureMorphism Σ Σ := {|
   on_sorts := idmap ;
-  on_funcs := λ w s F, rew [λ w, Funcs Σ w s] (map_id w)^ in F ;
-  on_preds := λ w P, rew [λ w, Preds Σ w] (map_id w)^ in P ;
+  on_funcs := id_arityF_tm (Funcs Σ) ;
+  on_preds := id_arityP_tm (Preds Σ) ;
 |}.
 
-Definition comp_FOSig 
+Program Definition comp_FOSig 
     {A B C : Signature}
     (τ : SignatureMorphism B C)
     (σ : SignatureMorphism A B)
     : SignatureMorphism A C := {|
   on_sorts := τ ∘ σ ;
-
-  on_funcs := λ w s F,
-    rew [λ w, Funcs C w _]
-      (map_map σ τ w) in
-      (on_funcs τ (on_funcs σ F)) ;
-
-  on_preds := λ w P,
-    rew [λ w, Preds C w]
-      (map_map σ τ w) in
-      (on_preds τ (on_preds σ P)) ;
+  on_funcs := tagged_morphism_compose (on_funcs τ) (on_funcs σ) ;
+  on_preds := tagged_morphism_compose (on_preds τ) (on_preds σ) ;
 |}.
+Next Obligation. repeat rewrite tagged_morphism_commutes. now rewrite lift_sig_compose. Defined.
+Next Obligation. repeat rewrite tagged_morphism_commutes. now rewrite map_map. Defined.
 
 Theorem id_left_FOSig {Σ Σ'} (σ : SignatureMorphism Σ Σ') :
   comp_FOSig (id_FOSig Σ') σ = σ.
 Proof with cbn.
-  apply (eq_signature_morphism _ _ (comp_FOSig (id_FOSig Σ') σ) σ eq_refl); cbn.
-  all: repeat funext ?; rewrite rew_compose; now simplify_eqs. 
+  apply (eq_signature_morphism _ _ (comp_FOSig (id_FOSig Σ') σ) σ eq_refl);
+  cbn; apply tagged_morphism_eq; easy.
 Qed.
 
 Theorem id_right_FOSig {Σ Σ'} (σ : SignatureMorphism Σ Σ') :
   comp_FOSig σ (id_FOSig Σ) = σ.
 Proof with cbn.
-  apply (eq_signature_morphism _ _ (comp_FOSig σ (id_FOSig Σ)) σ eq_refl); cbn.
-  all: repeat funext ?; simplify_eqs; destruct eqH0; now simplify_eqs.
+  apply (eq_signature_morphism _ _ (comp_FOSig σ (id_FOSig Σ)) σ eq_refl); cbn;
+  apply tagged_morphism_eq; easy.
 Qed.
 
 Lemma comp_assoc_FOSig
@@ -67,8 +77,7 @@ Proof with cbn.
   apply (eq_signature_morphism _ _ 
     (comp_FOSig h (comp_FOSig g f))
     (comp_FOSig (comp_FOSig h g) f) eq_refl
-  ); cbn; repeat funext ?; simplify_eqs;
-     destruct eqH2, eqH1, eqH0; now simplify_eqs.
+  ); cbn; apply tagged_morphism_eq; easy.
 Qed.
 
 Lemma comp_assoc_sym_FOSig :
@@ -159,13 +168,11 @@ Proof.
   - simp on_terms.
     simpl on_funcs.
     rewrite map_on_terms_hmap; cbn.
-    rewrite reindex_id; cbn.
+    rewrite reindex_id; cbn. rewrite rew_compose.
     revert H; simplify_eqs; intros H.
     pose proof (H' := proj1 (map_ext_HForall _ _ _) H).
     setoid_rewrite H'.
-    induction args; cbn.
-    * case eqH; auto.
-    * case eqH; rewrite hmap_id; auto.
+    case eqH. cbn. now rewrite hmap_id.
 Qed.
 
 Theorem map_on_terms_id Σ Γ w (ts : HVec (Term Σ Γ) w) :
@@ -203,7 +210,10 @@ Proof.
                map_on_terms (comp_FOSig τ σ) ts =
                  rew [λ Γ, HVec (Term C Γ) _] (map_map σ τ Γ) in
                    rew map_map σ τ w in map_on_terms τ (map_on_terms σ ts)).
-      { intros. rewrite H0. now simplify_eqs. }
+      { intros. rewrite H0. unfold on_terms_obligation_1. cbn. unfold comp_FOSig_obligation_1.
+        simplify_eqs. destruct eqH. destruct eqH3. cbn. unfold on_terms_obligation_2.
+        simplify_eqs. destruct eqH1. cbn. destruct eqH0. cbn. f_equal. destruct eqH2. cbn.
+        simplify_eqs. auto. }
       intros. induction ts; cbn.
       + now simplify_eqs.
       + rewrite IHts; cbn.
@@ -229,11 +239,11 @@ Proof.
     now simplify_eqs.
 Qed.
 
-Equations fmap_FOPEQ {A B : FOSig} {Γ : Ctx A} (σ : A ~{ FOSig }~> B) :
+Equations? fmap_FOPEQ {A B : FOSig} {Γ : Ctx A} (σ : A ~{ FOSig }~> B) :
     FOPEQ A Γ ~{ SetCat }~> FOPEQ B (map σ Γ) :=
   fmap_FOPEQ σ (Forall ψ   ) := Forall (fmap_FOPEQ σ ψ) ;
   fmap_FOPEQ σ (Exists ψ   ) := Exists (fmap_FOPEQ σ ψ) ;
-  fmap_FOPEQ σ (Pred P args) := Pred (on_preds σ P) (map_on_terms σ args) ;
+  fmap_FOPEQ σ (Pred P args) := Pred (on_preds σ P) _ ;
   fmap_FOPEQ σ (And α β    ) := And (fmap_FOPEQ σ α) (fmap_FOPEQ σ β) ;
   fmap_FOPEQ σ (Or α β     ) := Or (fmap_FOPEQ σ α) (fmap_FOPEQ σ β) ;
   fmap_FOPEQ σ (Imp α β    ) := Imp (fmap_FOPEQ σ α) (fmap_FOPEQ σ β) ;
@@ -241,6 +251,10 @@ Equations fmap_FOPEQ {A B : FOSig} {Γ : Ctx A} (σ : A ~{ FOSig }~> B) :
   fmap_FOPEQ σ (Equal t₁ t₂) := Equal (on_terms σ t₁) (on_terms σ t₂) ;
   fmap_FOPEQ σ (FOL_T      ) := FOL_T ;
   fmap_FOPEQ σ (FOL_F      ) := FOL_F .
+
+  - refine (rew _ in map_on_terms σ args).
+    now rewrite tagged_morphism_commutes.
+Defined.
 
 Global Transparent fmap_FOPEQ.
 
@@ -261,7 +275,8 @@ Proof.
     rewrite <- (lemma2_3_11a (FOPEQ Σ) (cons s) (λ _, Exists)).
     reflexivity.
   - repeat rewrite on_terms_id. now simplify_eqs.
-  - repeat rewrite map_on_terms_id. now simplify_eqs.
+  - unfold fmap_FOPEQ_obligation_1. repeat rewrite map_on_terms_id. simplify_eqs.
+    rewrite rew_compose. now simplify_eqs.
   - rewrite IHφ1, IHφ2. now case (map_id Γ)^.
   - rewrite IHφ1, IHφ2. now case (map_id Γ)^.
   - rewrite IHφ1, IHφ2. now case (map_id Γ)^.
@@ -287,12 +302,19 @@ Proof.
     now rewrite (map_subst (λ _, Exists)).
   - repeat rewrite <- on_terms_comp.
     now destruct (map_map g f Γ).
-  - induction h.
-    * now simplify_eqs.
+  - unfold fmap_FOPEQ_obligation_1. cbn.
+    unfold comp_FOSig_obligation_2.
+    simplify_eqs.
+    induction h.
+    * cbn in *. destruct eqH0. cbn.
+      f_equal. destruct eqH1. cbn.
+      destruct eqH2. cbn. now simplify_eqs.
     * rewrite map_on_terms_comp; cbn in *.
       rewrite map_map_cons_pfs.
-      do 2 rewrite <- rew_map.
-      now simplify_eqs.
+      rewrite <- rew_map. destruct eqH2.
+      simplify_eqs.
+      destruct eqH2. cbn.
+      case eqH0. cbn. simplify_eqs. auto.
   - rewrite IHφ1, IHφ2. now simplify_eqs.
   - rewrite IHφ1, IHφ2. now simplify_eqs.
   - rewrite IHφ1, IHφ2. now simplify_eqs.
@@ -325,10 +347,12 @@ Proof.
     + simp on_terms eval_term; cbn.
       repeat rewrite map_eval_term_hmap.
       rewrite map_on_terms_hmap.
+      unfold Algebra.ReductAlgebra_obligation_2, Algebra.ReductAlgebra_obligation_1, on_terms_obligation_1.
+      simplify_eqs. destruct eqH. simpl eq_rect.
+      simp eval_term. f_equal. destruct eqH0. cbn.
+      rewrite map_eval_term_hmap.
       rewrite hmap_reindex.
       rewrite <- hmap_hmap.
-      (* exactly twice *)
-      do 2 f_equal.
       now setoid_rewrite (proj1 (map_ext_HForall _ _ _) H).
 Qed.
 
@@ -400,10 +424,12 @@ Program Instance ReductFunctor
   fmap := λ A B h, exist _ (h ∘ σ) _ ;
 |}.
 Next Obligation.
-  simpl interp_funcs.
+  simpl interp_funcs. unfold Algebra.ReductAlgebra_obligation_2, Algebra.ReductAlgebra_obligation_1.
+  simplify_eqs.
   refine (eq_trans _ _).
   rewrite (proj2_sig h); auto.
-  rewrite reindex_hmap; auto.
+  rewrite <- reindex_hmap. f_equal.
+  now destruct eqH.
 Defined.
 Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Defined.
 Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Defined.
@@ -413,24 +439,33 @@ Lemma reduct_id (Σ : Signature) (A : Algebra Σ) :
 Proof.
   unfold ReductAlgebra; destruct A.
   cbn. repeat change (λ x, ?f x) with f. f_equal.
-  - funext w s F args.
+  - funext F args.
     rewrite reindex_id.
-    now destruct (map_id w)^.
-  - funext w P args.
+    rewrite rew_compose.
+    now simplify_eqs.
+  - funext P args.
     rewrite reindex_id.
-    now destruct (map_id w)^.
+    rewrite rew_compose.
+    now simplify_eqs.
 Qed.
 
 Lemma reduct_comp {A B C : FOSig} (g : B ~> C) (f : A ~> B) (M : Algebra C) :
   ReductAlgebra (comp_FOSig g f) M = ReductAlgebra f (ReductAlgebra g M).
 Proof.
   destruct M; unfold ReductAlgebra; cbn; f_equal.
-  - funext w s F args.
+  - funext F args.
     rewrite <- reindex_comp.
-    now destruct (map_map f g w).
-  - funext w P args.
+    rewrite (rew_map _ _ (Algebra.ReductAlgebra_obligation_2 A B f F)).
+    repeat rewrite rew_compose.
+    simplify_eqs. destruct eqH. cbn.
+    f_equal. destruct eqH0, eqH2. cbn.
+    now simplify_eqs.
+  - funext P args.
     rewrite <- reindex_comp.
-    now destruct (map_map f g w).
+    rewrite rew_compose.
+    simplify_eqs.
+    destruct eqH1. cbn.
+    now simplify_eqs.
 Qed.
 
 Definition FOPEQ_Mod : FOSig ⟶ Cat^op := {|
@@ -496,8 +531,24 @@ Proof.
     exact i.
   - intros. do 2 rewrite -> helper_eval_term_reduct. apply H.
   - intros. do 2 rewrite <- helper_eval_term_reduct. apply H.
-  - intros. rewrite <- helper_map_eval_term_reduct. apply H.
-  - intros. rewrite -> helper_map_eval_term_reduct. apply H.
+  - unfold fmap_FOPEQ_obligation_1, Algebra.ReductAlgebra_obligation_3.
+    rewrite <- helper_map_eval_term_reduct.
+    simplify_eqs.
+    cut (interp_preds A' (on_preds σ P)
+    (map_eval_term A' (rew [HVec (Term Σ' (map σ Γ))] eqH in map_on_terms σ h)
+       (reindex σ env)) = interp_preds A' (on_preds σ P)
+       (rew [HVec A'] eqH in map_eval_term A' (map_on_terms σ h) (reindex σ env))).
+    { intros. change (λ x, ?f x) with f in *. rewrite <- H. auto. }
+    f_equal. now destruct eqH.
+  - unfold fmap_FOPEQ_obligation_1, Algebra.ReductAlgebra_obligation_3.
+    rewrite <- helper_map_eval_term_reduct.
+    simplify_eqs.
+    cut (interp_preds A' (on_preds σ P)
+    (map_eval_term A' (rew [HVec (Term Σ' (map σ Γ))] eqH in map_on_terms σ h)
+      (reindex σ env)) = interp_preds A' (on_preds σ P)
+      (rew [HVec A'] eqH in map_eval_term A' (map_on_terms σ h) (reindex σ env))).
+    { intros. change (λ x, ?f x) with f in *. rewrite H. auto. }
+    f_equal. now destruct eqH.
   - intros H.
     destruct H as [H1 H2].
     exact (conj (proj1 (IHφ1 env) H1) (proj1 (IHφ2 env) H2)).
