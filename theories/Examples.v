@@ -1,8 +1,13 @@
 Require Import Category.Theory.
 
+(* The category theory library overwrites the unit type as the unit for an 
+ * adjunction, so we reimport it. *)
+Require Import Datatypes.
+Require Import Coq.Bool.Bool.
+
 Require Import Core.Basics.
 Require Import Core.Tagged.
-Require Import Core.HVec.
+Require Import Core.HList.
 Require Import FOL.Signature.
 Require Import FOL.Algebra.
 Require Import FOL.Sentence.
@@ -12,12 +17,8 @@ Require Import Lib.Institutions.
 Require Import Institutions.InsFOPEQ.
 Require Import Institutions.InsEVT.
 Require Import Institutions.Machine.
-Require Import Institutions.EvtLTL.
-
-(* The category theory library overwrites the unit type as the unit for an 
- * adjunction, so we reimport it. *)
-Require Import Datatypes.
-Require Import Coq.Bool.Bool.
+(* Require Import Experimental.TermMonad. *)
+(* Require Import Institutions.EvtLTL. *)
 
 Inductive stack_sorts := elem | stack.
 Inductive stack_funcs_names := empty | inhab | push | pop.
@@ -55,7 +56,7 @@ Definition stack_nat_is (s : Sorts stack_sig) : Type :=
   end.
 
 Local Notation stack_fn := (Curried stack_nat_is) (only parsing).
-Local Notation stack_args := (HVec stack_nat_is) (only parsing).
+Local Notation stack_args := (HList stack_nat_is) (only parsing).
 
 Definition stack_nat_if (F : Funcs stack_sig) : stack_args (ar F) → stack_nat_is (res F) :=
   uncurry match F return (Curried stack_nat_is (fst (Funcs stack_sig F)) (snd (Funcs stack_sig F))) with
@@ -70,7 +71,7 @@ Equations stack_nat_is_empty (args : stack_args [stack]) : Prop :=
 
 Global Transparent stack_nat_is_empty.
 
-Definition stack_nat_ip (P : Preds stack_sig) : HVec stack_nat_is (Preds stack_sig P) → Prop :=
+Definition stack_nat_ip (P : Preds stack_sig) : HList stack_nat_is (Preds stack_sig P) → Prop :=
   match P with
   | is_empty => stack_nat_is_empty
   end.
@@ -95,7 +96,7 @@ Definition example_sentence₁ : Sen[INS_FOPEQ] stack_sig :=
 
 (* Proof is trivial *)
 Theorem example_correct₁ : stack_nat ⊨ example_sentence₁.
-Proof. easy. Qed.
+Proof. cbn; reflexivity. Qed.
 
 (* Here's a more detailed derivation. *)
 Theorem example_correct_alt₁ : stack_nat ⊨ example_sentence₁.
@@ -104,14 +105,12 @@ Proof.
    *   nat → ∀ x : list nat, x = x
    * which doesn't really let us see what's going on. Instead we'll break each
    * component down one at a time. *)
-  unfold "⊨", example_sentence₁.
+  unfold example_sentence₁.
   intros x s.
-  unfold interp_fopeq, eval_term. simp nth.
+  unfold interp_fopeq. unfold eval_term.
   simpl (interp_funcs stack_nat push).
   simpl (interp_funcs stack_nat pop).
-  unfold stack_nat_if.
-  simp uncurry.
-  unfold List.tl.
+  unfold stack_nat_if. simp nth.
   reflexivity.
 Qed.
 
@@ -256,18 +255,35 @@ Arguments b2n_funcs : clear implicits.
 Definition bool_to_nandᵈ : SignatureMorphismᵈ bool_sig nand_sig.
   refine {|
     on_sortsᵈ := idmap : Sorts bool_sig -> Sorts nand_sig ;
-    on_funcsᵈ := b2n_funcs ;
+    on_funcsᵈ := _ ;
     on_predsᵈ := exist _ idmap _ ;
-  |}; contradiction.
+  |}.
+  * unshelve esplit.
+    - intros. unfold TaggedTerm.
+      pose (b2n_funcs X).
+      rewrite map_id in t.
+      unshelve esplit.
+      + split; [
+          exact (fst (Funcs bool_sig X)) |
+          exact (snd (Funcs bool_sig X)) ].
+      + exact t.
+    - intros; destruct x; auto.
+  * contradiction.
 Defined.
 (* Notation bool_to_nand := (collapse_derived bool_to_nandᵈ). *)
 
-Definition bool_alg : Mod[INS_FOPEQ] bool_sig := {|
+(* TODO: Fix derived signature morphisms *)
+Definition bool_alg : Mod[INS_FOPEQ] bool_sig.
+refine {|
   interp_sorts := interp_sorts nand_alg : Sorts bool_sig -> Type ;
-  interp_funcs F :=
-    eval_term nand_alg (on_funcsᵈ bool_to_nandᵈ F) ∘ reindex idmap ;
-  interp_preds := λ _ _, False ;
+  interp_funcs F := _ ;
+    (* eval_term nand_alg (on_funcsᵈ bool_to_nandᵈ F) ∘ reindex idmap ; *)
+  interp_preds := _ ;
+    (* λ _ _, False ; *)
 |}.
+Admitted.
+  (* destruct F' as [(w & s) F']; cbn in F'. *)
+  (* pose (eval_term nand_alg F'). *)
 
 Definition bool_is (_ : Sorts bool_sig) := bool.
 
@@ -322,7 +338,8 @@ Definition trivial : Sen[INS_FOPEQ] nand_sig :=
  * -> nand_alg ⊨ False ⊼ (P ⊼ P)
  * -> True
  *)
-Definition exampleᵈ : Sen[INS_FOPEQ] nand_sig :=
+(* TermMonad not updated yet. *)
+(* Definition exampleᵈ : Sen[INS_FOPEQ] nand_sig :=
   Forall (
     Equal (on_termsᵈ bool_to_nandᵈ
             (bool_term IMP ⟨ bool_term bFALSE ⟨⟩ ; var x₁ ⟩
@@ -332,7 +349,7 @@ Definition exampleᵈ : Sen[INS_FOPEQ] nand_sig :=
 
 (* Still no problems. *)
 Theorem exampleᵈ_true : nand_alg ⊨ exampleᵈ.
-Proof. easy. Qed.
+Proof. easy. Qed. *)
 
 Definition consensus_thm : Sen[INS_FOPEQ] bool_sig :=
   Forall (Forall (Forall (
@@ -370,10 +387,10 @@ Definition tsalg_to_alg {Σ} (M : Mod[INS_FOPEQ] (TermSignature Σ)) : Mod[INS_F
   interp_preds := λ w P, interp_preds M P ;
 |}. *)
 
-Theorem consensus_thm_true : bool_alg ⊨ consensus_thm.
+(* Theorem consensus_thm_true : bool_alg ⊨ consensus_thm.
 Proof.
-  intros x y z; now destruct x, y, z.
-Qed.
+  intros x y z; vm_compute; now destruct x, y, z.
+Qed. *)
 
 (** Theorem re-use *)
 
@@ -438,7 +455,12 @@ Definition nat_sig : FOSig := {|
   Preds := nat_preds ;
 |}.
 
-Inductive mac_events := ML_out | ML_in.
+Inductive mac_events_data := ML_out | ML_in.
+
+Definition mac_events : Tagged Status := {|
+  tagged_data := mac_events_data ;
+  get_tag _ := ordinary ;
+|}.
 
 Inductive mac_vars  := d | n.
 Inductive mac_vars' := d' | n'.
@@ -501,7 +523,7 @@ Local Notation mac_var_ltl := (λ x', term (Σ := mac_sig_ltl) (Γ := []) (inr x
 Definition interp_nat_sorts (_ : Sorts nat_sig) : Type :=
   nat.
 
-Local Notation Args := (HVec interp_nat_sorts) (only parsing).
+Local Notation Args := (HList interp_nat_sorts) (only parsing).
 
 Equations interp_nat_le (args : Args [tt;tt]) : Prop :=
   interp_nat_le ⟨ x ; y ⟩ := x ≤ y.
@@ -519,7 +541,7 @@ Definition interp_nat_funcs (F : Funcs nat_sig) :=
   | nat_sub  => Nat.sub
   end.
 
-Definition interp_nat_preds (P : Preds nat_sig) : HVec interp_nat_sorts (Preds nat_sig P) → Prop :=
+Definition interp_nat_preds (P : Preds nat_sig) : HList interp_nat_sorts (Preds nat_sig P) → Prop :=
   match P with
   | nat_le => interp_nat_le
   | nat_lt => interp_nat_lt
@@ -534,9 +556,14 @@ Definition nat_alg : Algebra mac_sig_base := {|
 Definition mac_sig : MachineSig := {|
   evt_sig := mac_sig_base ;
   events := mac_events ;
-  status e := match e with ML_out => ordinary | ML_in => ordinary end ;
 |}.
 
+(* New universe issues introduced between Coq 8.12 and 8.16 prevent
+   EvtLTL.v from working, so the rest of these examples don’t work at
+   the moment. (They used to, I swear.)
+ *)
+
+(* 
 Definition machine : Sen[EvtLTL] mac_sig.
   cbn; left; unfold MachineSen.
   split.
@@ -691,4 +718,4 @@ Qed.
 Theorem constraint_correct₆ : trace ⊨ ltl_constraint₆.
 Proof.
   cbn; autounfold. left. exists 1%nat; cbn; split; auto.
-Qed.
+Qed. *)

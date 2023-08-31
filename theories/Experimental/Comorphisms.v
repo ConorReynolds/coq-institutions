@@ -2,7 +2,8 @@ Require Import Category.Theory.
 Require Import Category.Functor.Opposite.
 
 Require Import Core.Basics.
-Require Import Core.HVec.
+Require Import Core.Tagged.
+Require Import Core.HList.
 Require Import FOL.Signature.
 Require Import FOL.Algebra.
 Require Import Institutions.
@@ -22,17 +23,17 @@ Inductive TrivialEvents := .
 Definition fobj_promote (Σ : FOSig) : EvtSig.
   unshelve refine {|
     base := Σ ;
-    vars  := {| varnames := Empty_set |} ;
-    vars' := {| varnames := Empty_set |} ;
+    vars  := {| tvars := tagged_empty _ |} ;
+    vars' := {| tvars := tagged_empty _ |} ;
     prime_rel := _ ;
-  |}; try exact void.
+  |}.
   - intros ?; contradiction.
   - intros ?; contradiction.
   - unshelve esplit; cbn; auto.
-    exists void; cbn; contradiction.
-    exists void; cbn; contradiction.
-    intros ?; contradiction.
-    intros ?; contradiction.
+    * exists void; cbn; contradiction.
+    * exists void; cbn; contradiction.
+    * intros ?; contradiction.
+    * intros ?; contradiction.
 Defined.
 
 Definition fmap_promote
@@ -70,13 +71,13 @@ Qed.
 Definition inc_sen_sig_mor (Σ : FOSig) : Σ ~> SigExpansion (promote Σ) (vars' (promote Σ)).
 refine {|
   on_sorts := idmap : Sorts Σ -> Sorts (SigExpansion (promote Σ) (vars' (promote Σ))) ;
-  on_funcs := λ w s F, _ ;
-  on_preds := λ w P, _ ;
+  on_funcs := _ ;
+  on_preds := _ ;
 |}.
-  - destruct w.
-    + left. exact F.
-    + exact (rew [λ w, Funcs Σ (s0 :: w) s] (map_id w)^ in F).
-  - exact (rew (map_id w)^ in P).
+  - exists Datatypes.inl; intros.
+    rewrite lift_ty_idmap. reflexivity.
+  - exists idmap; intros.
+    rewrite map_id; reflexivity.
 Defined.
 
 Definition include_sentence (Σ : FOSig) (φ : FOSen Σ) : EvtSen (promote Σ) := 
@@ -91,13 +92,7 @@ Proof.
   cbn in H. rewrite <- H. simplify_eqs.
   pose proof (moveR_transport_V _ _ _ _ (fmap_compose_FOSen (inc_sen_sig_mor Σ') σ φ)).
   cbn in H0. rewrite <- H0. simplify_eqs. f_equal.
-  unfold comp_FOSig; f_equal; [ funext w s F | funext w P ]; cbn.
-  - destruct w; cbn. now simplify_eqs.
-    rewrite map_map_cons_pfs.
-    rewrite <- rew_map.
-    simplify_eqs; destruct eqH, eqH0, eqH2; cbn.
-    now simplify_eqs.
-  - simplify_eqs. destruct eqH, eqH0, eqH2. now simplify_eqs.
+  unfold comp_FOSig; cbn; f_equal; apply subset_eq_compat; auto.
 Qed.
 
 Program Definition inc_sen : FOSen ⟹ EvtSen ◯ promote := {|
@@ -111,3 +106,10 @@ Qed.
 Next Obligation.
   now rewrite <- fmap_promote_include.
 Qed.
+
+(*****************************************************************************)
+(* ρ_mod :  EvtMod ◯ promote^op ⟹ FOMod *)
+(* TODO *)
+
+(* Yet more universe errors – we should be able to write this, but can’t. *)
+(* Definition EvtFolInclusion : InsComorphism INS_EVT INS_FOPEQ. *)

@@ -1,6 +1,6 @@
 Require Import Core.Basics.
 Require Import Core.Tagged.
-Require Import Core.HVec.
+Require Import Core.HList.
 
 Record Signature := {
   Sorts : Type ;
@@ -26,17 +26,22 @@ Notation ar F := (fst (get_tag F)) (only parsing).
 Notation res F := (snd (get_tag F)) (only parsing).
 Notation arP P := (get_tag P) (only parsing).
 
-Definition lift_sig [A B] (f : A -> B) x := (map f (fst x), f (snd x)).
+Definition lift_ty [A B] (f : A -> B) x := (map f (fst x), f (snd x)).
 
-Lemma lift_sig_compose [A B C] (g : B -> C) (f : A -> B) x :
-lift_sig g (lift_sig f x) = lift_sig (g ∘ f) x.
+Lemma lift_ty_idmap [A] x : lift_ty (idmap : A -> A) x = x.
 Proof.
-  induction x; unfold lift_sig; cbn; rewrite map_map; reflexivity.
+  unfold lift_ty; rewrite map_id; now destruct x.
+Qed.
+
+Lemma lift_ty_compose [A B C] (g : B -> C) (f : A -> B) x :
+lift_ty g (lift_ty f x) = lift_ty (g ∘ f) x.
+Proof.
+  unfold lift_ty; cbn; rewrite map_map; reflexivity.
 Qed.
 
 Record SignatureMorphism (Σ Σ' : Signature) := {
   on_sorts :> Sorts Σ -> Sorts Σ' ;
-  on_funcs : tagged_morphism (lift_sig on_sorts) (Funcs Σ) (Funcs Σ') ;
+  on_funcs : tagged_morphism (lift_ty on_sorts) (Funcs Σ) (Funcs Σ') ;
   on_preds : tagged_morphism (map on_sorts) (Preds Σ) (Preds Σ') ;
 }.
 
@@ -46,7 +51,7 @@ Arguments on_preds {Σ Σ'} σ : rename.
 
 Lemma eq_signature_morphism (Σ Σ' : Signature) (σ σ' : SignatureMorphism Σ Σ')
   (p : on_sorts σ = on_sorts σ')
-  (q : rew [λ os, tagged_morphism (lift_sig os) (Funcs Σ) (Funcs Σ')] p
+  (q : rew [λ os, tagged_morphism (lift_ty os) (Funcs Σ) (Funcs Σ')] p
         in (@on_funcs _ _ σ) = @on_funcs _ _ σ')
   (r : rew [λ os, tagged_morphism (map os) (Preds Σ) (Preds Σ')] p
         in (@on_preds _ _ σ) = @on_preds _ _ σ')

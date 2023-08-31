@@ -4,9 +4,12 @@ Require Export Lib.Notations.
 Require Export List.
 Export ListNotations.
 Export EqNotations.
-From Equations Require Export Equations.
+Require Export Equations.Prop.Equations.
 
 Generalizable All Variables.
+
+#[export] Set Universe Polymorphism.
+#[export] Unset Universe Minimization ToSet.
 
 Notation "g ∘ f" := (λ x, g (f x)).
 Notation idmap := (λ x, x).
@@ -120,7 +123,7 @@ Arguments surj_inv [A B] f.
 Arguments surj_retr [A B] f.
 
 Lemma eq_surjective [A B] (f : A -> B) (X Y : Surjective f)
-  (p : surj_inv _ X = surj_inv _ Y)
+  (p : surj_inv f X = surj_inv f Y)
   : X = Y.
 Proof.
   destruct X, Y. cbn in p; simplify_eqs.

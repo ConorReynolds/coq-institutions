@@ -1,8 +1,9 @@
+Require Import Category.Lib.
 Require Import Category.Theory.
 
 Require Import Core.Basics.
 Require Import Core.Tagged.
-Require Import Core.HVec.
+Require Import Core.HList.
 Require Import FOL.Signature.
 Require Import FOL.Algebra.
 Require Import FOL.Sentence.
@@ -43,26 +44,22 @@ Definition EvtSig : Category.
     comp_assoc := _ ;
     comp_assoc_sym := _ ;
   |}; intros.
-  - refine (
-      eq_evtsigmorphism x y (comp_EvtSig (id_EvtSig y) f) f
-      eq_refl
-      (id_left_FOSig (on_base f)) _
-  ); cbn. destruct f. cbn in *. apply var_morphism_left_id.
-  - refine (
-      eq_evtsigmorphism x y (comp_EvtSig f (id_EvtSig x)) f
-      eq_refl
-      (id_right_FOSig (on_base f)) _
-    ); cbn. destruct f. cbn in *. apply var_morphism_right_id.
-  - refine (
-      eq_evtsigmorphism _ _ (comp_EvtSig f (comp_EvtSig g h)) (comp_EvtSig (comp_EvtSig f g) h)
-      eq_refl
-      (comp_assoc_FOSig x y z w f g h) _
-    ); cbn. destruct f. cbn in *. now rewrite var_morphism_assoc.
-  - refine (
-      eq_evtsigmorphism _ _ (comp_EvtSig (comp_EvtSig f g) h) (comp_EvtSig f (comp_EvtSig g h))
-      eq_refl
-      (comp_assoc_FOSig x y z w f g h)^ _
-  ); cbn. destruct f. cbn in *. now rewrite var_morphism_assoc.
+  - unshelve refine (eq_evtsigmorphism _ _ _ _ _ _ _); cbn.
+    * reflexivity.
+    * apply id_left_FOSig.
+    * apply var_morphism_left_id.
+  - unshelve refine (eq_evtsigmorphism _ _ _ _ _ _ _); cbn.
+    * reflexivity.
+    * apply id_right_FOSig.
+    * apply var_morphism_right_id.
+  - unshelve refine (eq_evtsigmorphism _ _ _ _ _ _ _); cbn.
+    * reflexivity.
+    * apply comp_assoc_FOSig.
+    * apply var_morphism_assoc.
+  - unshelve refine (eq_evtsigmorphism _ _ _ _ _ _ _); cbn.
+    * reflexivity.
+    * symmetry. apply comp_assoc_FOSig.
+    * symmetry. apply var_morphism_assoc.
 Defined.
 
 
@@ -112,12 +109,12 @@ Proof.
     on_preds := on_preds σ ;
   |}.
   unshelve esplit.
-  - intros. destruct X.
-    * left. exact (on_funcs σ t).
-    * right. exact (v t).
-  - intros. destruct x; cbn.
+  - intros F. destruct F as [F | x].
+    * left. exact (on_funcs σ F).
+    * right. exact (v x).
+  - intros F. destruct F as [F | x]; cbn.
     * apply tagged_morphism_commutes.
-    * unfold lift_sig. f_equal.
+    * unfold lift_ty. f_equal.
       apply tagged_morphism_commutes.
 Defined.
 
@@ -203,16 +200,19 @@ Proof.
     now simplify_eqs.
 Qed.
 
-Definition EvtSen : EvtSig ⟶ SetCat := {|
-  fobj := EVT : EvtSig -> SetCat ;
-  fmap := @fmap_EVT ;
-  fmap_id := fmap_id_EVT ;
-  fmap_comp := fmap_compose_EVT ;
-|}.
-
+Definition EvtSen : EvtSig ⟶ SetCat.
+  refine {|
+    fobj := EVT : EvtSig -> SetCat ;
+    fmap := @fmap_EVT ;
+    fmap_id := fmap_id_EVT ;
+    fmap_comp := fmap_compose_EVT ;
+  |}; proper; congruence.
+Defined.
 
 (*****************************************************************************)
 (** * EVT Model Functor *)
+
+Require Import Category.Construction.Opposite.
 
 Program Definition fmap_Mod_EVT'
     [Σ Σ'] (σ : Σ ~{ EvtSig^op }~> Σ') (M : EvtModel Σ)
@@ -228,6 +228,7 @@ Next Obligation.
   apply (var_morphism_commutes (on_vars' σ)).
 Defined.
 
+#[export]
 Program Instance fmap_Mod_EVT
     [Σ Σ'] (σ : Σ ~{ EvtSig^op }~> Σ')
     : EvtMod Σ ⟶ EvtMod Σ' := {|
@@ -236,6 +237,9 @@ Program Instance fmap_Mod_EVT
 |}.
 Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Defined.
 Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Defined.
+
+Definition f_equal_id [A] [x y : A] (p : x = y) : f_equal idmap p = p :=
+  match p with eq_refl => eq_refl end.
 
 Definition EvtMod : EvtSig^op ⟶ Cat.
   unshelve refine {|
@@ -246,7 +250,10 @@ Definition EvtMod : EvtSig^op ⟶ Cat.
   |}; repeat intro.
   - unshelve refine (eq_evt_model (fmap_Mod_EVT id{EvtSig^op} M) (id{SetCat} M) eq_refl (reduct_id _ _) _ _).
     + now funext ?; simplify_eqs.
-    + unfold eq_rect. funext ?. simplify_eqs. destruct M, base_alg. cbn in *.
+    + unfold eq_rect. funext ?. destruct M, base_alg. cbn in *.
+      rewrite eq_trans_assoc; cbn.
+      rewrite f_equal_id.
+      simplify_eqs.
       rewrite (proof_irrelevance _ eqH (f_equal (vars' Σ) (p_unp _))).
       rewrite <- rew_map. simplify_eqs. reflexivity.
   - unshelve refine (
@@ -274,7 +281,7 @@ Defined.
 
 Definition retract_env [A B : FOSig] (σ : A ~> B) [X : Vars A] [Y : Vars B]
   (f : var_morphism σ X Y) [M : Sorts B -> Type] (θ : Env Y M) : Env X (M ∘ σ) :=
-  λ x, rew (proj2_sig f _) in θ (f x).
+  λ x, rew (proj2_sig f x) in θ (f x).
 
 Lemma retract_env_compose
     [A B C : FOSig] (σ : A ~> B) (τ : B ~> C) [X : Vars A] [Y : Vars B] [Z : Vars C]
@@ -284,22 +291,26 @@ Lemma retract_env_compose
     retract_env (compose τ σ) (var_morphism_compose g f) θ.
 Proof.
   unfold retract_env; funext ?.
-  rewrite rew_map, rew_compose; f_equal.
+  rewrite rew_map, rew_compose; reflexivity.
 Qed.
 
-Lemma expand_retract_eq {A B : FOSig} (σ : A ~> B)
+Lemma expand_retract_eq {A B : FOSig} {σ : A ~> B}
     {M' : Mod[INS_FOPEQ] B} {X : Vars A} {X' : Vars B}
-    {θ' : Env X' M'} {v : var_morphism σ X X'} :
+    (θ' : Env X' M') (v : var_morphism σ X X') :
   AlgExpansion (ReductAlgebra σ M') (retract_env σ v θ') =
     ReductAlgebra (flatten_morphism σ v) (AlgExpansion M' θ').
 Proof.
   unfold AlgExpansion, ReductAlgebra, flatten_morphism; f_equal.
-  funext F θ. destruct F; cbn in *; auto.
-  unfold retract_env. simplify_eqs. destruct eqH. now simplify_eqs.
+  funext F θ; destruct F; cbn in *; auto.
+  unfold retract_env. simplify_eqs.
+  destruct eqH. now simplify_eqs.
 Qed.
 
-(* Need to rename this, but I can’t think of any good names. *)
-Lemma bighelper
+(* It feels as if this should be possible to prove with a general
+ * FOPEQ Σ Γ sentence – no luck so far though. I get to a point
+ * where f_equal does the same thing it did with EVT signature
+ * morphisms earlier on. *)
+Lemma expand_retract_iff
     {Σ Σ' : FOSig} (M' : Mod[INS_FOPEQ] Σ')
     (σ : Σ ~> Σ')
     (X : Vars Σ) (X' : Vars Σ')
@@ -318,13 +329,21 @@ Proof.
   - now rewrite expand_retract_eq in H.
 Qed.
 
+Lemma varmap_retract [A B : EvtSig] (σ : A ~> B) M' :
+  retract_env σ (on_vars σ) (env M') = env (fmap[EvtMod] σ M').
+Proof. reflexivity. Qed.
+
+Lemma varmap_retract' [A B : EvtSig] (σ : A ~> B) M' :
+  retract_env σ (on_vars' σ) (env' M') = env' (fmap[EvtMod] σ M').
+Proof. reflexivity. Qed.
+
 Lemma varmap_sum_join [A B : EvtSig] (σ : A ~> B) M' :
   retract_env σ (varmap_sum σ (on_vars σ) (on_vars' σ))
     (join_envs (env M') (env' M')) =
   join_envs (env (fmap[EvtMod] σ M')) (env' (fmap[EvtMod] σ M')).
 Proof.
-  unfold retract_env.
-  funext x; destruct x; cbn; simplify_eqs; auto.
+  unfold retract_env; funext x;
+  destruct x; simplify_eqs; reflexivity. 
 Qed.
 
 Definition INS_EVT : Institution.
@@ -336,10 +355,10 @@ Definition INS_EVT : Institution.
     sat := _ ;
   |}; intros.
   induction φ; split; intros.
-  - apply bighelper; auto.
-  - apply bighelper; auto.
-  - apply bighelper in H; unfold interp_evt, "⊨".
-    now rewrite <- varmap_sum_join.
-  - apply bighelper. unfold interp_evt, "⊨" in H.
+  - apply expand_retract_iff; auto.
+  - apply expand_retract_iff; auto.
+  - apply expand_retract_iff in H; unfold interp_evt, "⊨".
+    now rewrite varmap_sum_join in H.
+  - apply expand_retract_iff. unfold interp_evt, "⊨" in H.
     now rewrite varmap_sum_join.
-Qed.
+Defined.

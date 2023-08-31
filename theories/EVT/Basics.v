@@ -1,8 +1,9 @@
+Require Import Category.Lib.
 Require Import Category.Theory.
 
 Require Import Core.Basics.
 Require Import Core.Tagged.
-Require Import Core.HVec.
+Require Import Core.HList.
 Require Import FOL.Signature.
 Require Import FOL.Algebra.
 Require Import FOL.Sentence.
@@ -21,7 +22,7 @@ Definition Indexed (I : Type) : Category.
     homset := Morphism_equality ;
     id := λ I i x, x ;
     compose := λ X Y Z f g i, f i ∘ g i ;
-  |}; reflexivity.
+  |}; proper. rewrite X, X0. auto. 
 Defined.
 
 Definition indexed_coprod {I : Type} (X Y : Indexed I) : Indexed I :=
@@ -48,6 +49,8 @@ Arguments vars_dec [Σ].
 
 Inductive Status := ordinary | anticipated | convergent.
 
+Set Transparent Obligations.
+
 Derive NoConfusion EqDec for Status.
 
 Global Instance status_eqdec : EqDec Status eq.
@@ -65,7 +68,8 @@ Definition status_nat (s : Status) : nat :=
   | convergent  => 2
   end.
 
-Definition status_le (x y : Status) := le (status_nat x) (status_nat y).
+Definition status_le (x y : Status) :=
+  status_nat x ≤ status_nat y.
 
 Global Instance status_nat_inj : WeaklyInjective status_nat.
 Proof.
@@ -113,6 +117,7 @@ Definition var_morphism_compose
   (g : var_morphism σ Y Z) (f : var_morphism τ X Y)
   : var_morphism (σ ∘ τ) X Z.
 Proof.
+  (* exact (tagged_morphism_compose g f). *)
   exists (g ∘ f).
   intros. refine (eq_trans _ _).
   * apply var_morphism_commutes.
@@ -128,8 +133,8 @@ Proof.
   (* unfold var_morphism_compose. destruct f. apply subset_eq_compat. reflexivity. *)
   unfold var_morphism_compose; destruct f; cbn.
   unfold eq_trans. f_equal.
-  f_equal; ext. cbn.
-  now case (e H).
+  f_equal; funext ?.
+  now case (e x0).
 Qed.
 
 (* eq_trans computes w/o ext in this proof *)
@@ -220,7 +225,7 @@ Arguments on_vars {Σ Σ'} σ : rename.
 
 (* By proving it exactly like this we can use the structure later. *)
 Definition on_vars' {Σ Σ'} (σ : EvtSigMorphism Σ Σ') : var_morphism σ (vars' Σ) (vars' Σ').
-  refine (exist _ (λ x, prime (on_vars σ (unprime x))) _); intros; cbn.
+  refine (exist _ (λ x, prime (on_vars σ (unprime x))) _); intros.
   refine (eq_trans _ _). { apply var_morphism_commutes. }
   refine (eq_trans _ _). { apply var_morphism_commutes. }
   apply f_equal, var_morphism_commutes.
@@ -230,11 +235,10 @@ Lemma eq_evtsigmorphism
     (Σ Σ' : EvtSignature) (σ σ' : EvtSigMorphism Σ Σ')
     (p' : on_sorts σ = on_sorts σ')
     (p : on_base σ = on_base σ')
-    (q : rew [λ os, var_morphism os (vars Σ) (vars Σ')] p' in @on_vars Σ Σ' σ = @on_vars Σ Σ' σ')
+    (q : rew [λ f, var_morphism f (vars Σ) (vars Σ')] p' in on_vars σ = on_vars σ')
     : σ = σ'.
 Proof.
-  destruct σ, σ'.
-  cbn in *.
+  destruct σ, σ'; cbn in *.
   destruct p, q.
   now simplify_eqs.
 Qed.
@@ -247,8 +251,8 @@ Definition varsum [Σ] (X Y : Vars Σ) : Vars Σ := {|
 Notation "X ⊕ Y" := (varsum X Y).
 
 Inductive EVT (Σ : EvtSignature) : Type :=
-| Init  : Sen[INS_FOPEQ] (SigExpansion Σ (vars' Σ)) -> EVT Σ
-| Event : Sen[INS_FOPEQ] (SigExpansion Σ (vars Σ ⊕ vars' Σ)) -> EVT Σ.
+| Init  : Sen[INS_FOPEQ] (SigExpansion Σ (vars' Σ)) -> EVT
+| Event : Sen[INS_FOPEQ] (SigExpansion Σ (vars Σ ⊕ vars' Σ)) -> EVT.
 
 Arguments Event {Σ}.
 Arguments Init {Σ}.
@@ -260,7 +264,7 @@ Definition Env [Σ] (X : Vars Σ) (A : Sorts Σ -> Type) :=
 
 Equations alg_exp_funcs {Σ : FOSig} {X : Vars Σ}
     (A : Algebra Σ) (θ : Env X A) (F : Funcs (SigExpansion Σ X) )
-    : HVec (interp_sorts A) (ar F) -> interp_sorts A (res F) :=
+    : HList (interp_sorts A) (ar F) -> interp_sorts A (res F) :=
   alg_exp_funcs _ _ (Datatypes.inr C) := λ _, θ C ;
   alg_exp_funcs _ _ (Datatypes.inl F) := interp_funcs A F .
 
@@ -314,6 +318,7 @@ Qed.
 
 Definition EvtModelMorphism [Σ] (M N : EvtModel Σ) := AlgebraHom M N.
 
+#[export]
 Program Instance EvtMod (Σ : EvtSignature) : Category := {|
   obj := EvtModel Σ ;
   hom := @EvtModelMorphism Σ ;
@@ -321,10 +326,8 @@ Program Instance EvtMod (Σ : EvtSignature) : Category := {|
   id := λ _, id (Category := Alg Σ) ;
   compose := λ _ _ _, compose (Category := Alg Σ)
 |}.
-Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Qed.
-Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Qed.
-Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Qed.
-Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Qed.
+Solve All Obligations with
+  intros; refine (eq_alghom _ _ _ _ _); auto.
 
 Definition interp_evt {Σ : EvtSignature} (M : EvtModel Σ) (φ : EVT Σ) : Prop :=
   match φ with

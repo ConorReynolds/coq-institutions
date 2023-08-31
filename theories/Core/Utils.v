@@ -1,14 +1,15 @@
 Require Export Core.Basics.
+Require Import PeanoNat.
 
 (* Replaces a default element with a proof that n is in-bounds. *)
 Fixpoint safe_nth [A] (n : nat) (l : list A) : n < length l -> A :=
   match n, l with
   (* impossible cases *)
-  | 0,   []      => λ p : 0 < length [], match Lt.lt_irrefl _ p with end
-  | S k, []      => λ p : S k < length [], match Lt.lt_n_0 _ p with end
+  | 0,   []      => λ p : 0 < length [], match Nat.lt_irrefl _ p with end
+  | S k, []      => λ p : S k < length [], match Nat.nlt_0_r _ p with end
   (* possible cases *)
   | 0,   x :: _  => λ _, x
-  | S k, x :: xs => λ p : S k < length (x :: xs), safe_nth k xs (Lt.lt_S_n _ _ p)
+  | S k, x :: xs => λ p : S k < length (x :: xs), safe_nth k xs (proj2 (Nat.succ_lt_mono _ _) p)
   end.
 
 Lemma Forall_singleton : ∀ (A : Type) (P : A -> Prop) x, List.Forall P [x] <-> P x.

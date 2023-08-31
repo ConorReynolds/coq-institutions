@@ -1,9 +1,10 @@
 Require Import Category.Lib.
 Require Import Category.Theory.
+Require Import Category.Construction.Opposite.
 Require Import Category.Functor.Opposite.
 
 Require Import Core.Basics.
-Require Import Core.HVec.
+Require Import Core.HList.
 Require Import Institutions.
 Require Import EVT.Basics.
 Require Import Institutions.Machine.
@@ -18,10 +19,7 @@ Definition MacEVT2LTL_Sig : Sig[MacEVT] ⟶ Sig[LTL.LTL].
     fobj := λ Σ : Sig[MacEVT], {| LTL.base := base (evt_sig Σ) ; LTL.vars := vars (evt_sig Σ) |} : Sig[LTL.LTL] ;
     fmap := λ A B σ, _ ;
   |}; cbn in *; repeat intro.
-  - unshelve refine {|
-      LTL.on_base := _ ;
-      LTL.on_vars := _ ;
-    |}.
+  - unshelve esplit.
     + exact (on_base (fst σ)).
     + exact (@on_vars _ _ (fst σ)).
   - reflexivity.
@@ -35,8 +33,8 @@ Definition MacEVT2LTL_Mod : Mod[MacEVT] ⟹ Mod[LTL.LTL] ◯ MacEVT2LTL_Sig^op.
         LTL.base_alg := _ ;
         trace := _ ;
       |}; cbn in *.
-      * exact (`1 X).
-      * exact (fst (`2 X) :: map snd (snd (`2 X))).
+      * exact (`1 H).
+      * exact (fst (`2 H) :: map snd (snd (`2 H))).
     + exact f.
     + proper.
     + refine (eq_alghom _ _ _ _ _); reflexivity.

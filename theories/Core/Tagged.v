@@ -2,8 +2,10 @@ Require Import Core.Basics.
 Require Import Coq.Program.Equality.
 Require Import Coq.Logic.ProofIrrelevance.
 
-Record Tagged T := { 
-  tagged_data :> Type ;
+Set Printing Universes.
+
+Record Tagged@{t} (T : Type@{t}) : Type@{t+1} := { 
+  tagged_data :> Type@{t} ;
   get_tag :> tagged_data -> T ;
 }.
 
@@ -51,9 +53,8 @@ Lemma tagged_morphism_eq {T1 T2} {X : Tagged T1} {Y : Tagged T2} {t : T1 -> T2}
   (f g : tagged_morphism t X Y)
   : proj1_sig f = proj1_sig g -> f = g.
 Proof.
-  intros. destruct f, g.
-  apply subset_eq_compat.
-  apply H.
+  intros H. destruct f, g.
+  apply subset_eq_compat, H.
 Qed.
 
 Definition tagged_morphism_compose
@@ -74,6 +75,25 @@ Definition tagged_sum [A] (T1 T2 : Tagged A) : Tagged A := {|
     | inl x => T1 x
     | inr x => T2 x
     end ;
+|}.
+
+Definition tagged_sum' [A B] (T1 : Tagged A) (T2 : Tagged B) : Tagged (A + B) := {|
+  tagged_data := T1 + T2 ;
+  get_tag x :=
+    match x with
+    | inl x => inl (get_tag x)
+    | inr x => inr (get_tag x)
+    end ;
+|}.
+
+Definition tagged_left [A B] (T : Tagged A) : Tagged (A + B) := {|
+  tagged_data := tagged_data T ;
+  get_tag x := inl (T x) ;
+|}.
+
+Definition tagged_right [A B] (T : Tagged B) : Tagged (A + B) := {|
+  tagged_data := tagged_data T ;
+  get_tag x := inr (T x) ;
 |}.
 
 Definition tagged_empty A : Tagged A :=

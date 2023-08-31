@@ -1,6 +1,6 @@
 Require Import Core.Basics.
 Require Import Core.Tagged.
-Require Import Core.HVec.
+Require Import Core.HList.
 Require Import FOL.Signature.
 Require Import FOL.Algebra.
 Require Import FOL.Terms.
@@ -12,7 +12,7 @@ Inductive FOPEQ : Ctx Σ -> Type :=
 | Forall : ∀ Γ s, FOPEQ (s :: Γ) -> FOPEQ Γ
 | Exists : ∀ Γ s, FOPEQ (s :: Γ) -> FOPEQ Γ
 | Equal  : ∀ Γ s, Term Σ Γ s -> Term Σ Γ s -> FOPEQ Γ
-| Pred   : ∀ Γ (P : Preds Σ), HVec (Term Σ Γ) (arP P) -> FOPEQ Γ
+| Pred   : ∀ Γ (P : Preds Σ), HList (Term Σ Γ) (arP P) -> FOPEQ Γ
 | And    : ∀ Γ, FOPEQ Γ -> FOPEQ Γ -> FOPEQ Γ
 | Or     : ∀ Γ, FOPEQ Γ -> FOPEQ Γ -> FOPEQ Γ
 | Imp    : ∀ Γ, FOPEQ Γ -> FOPEQ Γ -> FOPEQ Γ
@@ -36,7 +36,7 @@ Arguments FOL_F {Σ Γ}.
 Fixpoint interp_fopeq {Σ : Signature} {Γ : Ctx Σ}
                       (A : Algebra Σ)
                       (φ : FOPEQ Σ Γ)
-                      : HVec (interp_sorts A) Γ -> Prop :=
+                      : HList (interp_sorts A) Γ -> Prop :=
   match φ with
   | Forall ψ    => λ env, ∀ x, interp_fopeq A ψ (x ::: env)
   | Exists ψ    => λ env, ∃ x, interp_fopeq A ψ (x ::: env)

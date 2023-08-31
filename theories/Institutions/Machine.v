@@ -1,6 +1,7 @@
 Require Import Category.Lib.
 Require Import Category.Theory.
 Require Import Category.Functor.Opposite.
+Require Import Category.Construction.Opposite.
 
 Require Import Core.Utils.
 Require Import Core.Tagged.
@@ -11,14 +12,20 @@ Require Import Lia.
 Require Import Coq.Program.Equality.
 Require Import ProofIrrelevance.
 Require Import FunctionalExtensionality.
+(* Require Import Coq.Logic.FinFun. *)
 
+(* We may not need finiteness here – just decidable equality.
+ * But if we do need finiteness, it might be best to have a 
+ * no-dupes list of event names and work using that. *)
 Record MachineSignature := {
   evt_sig :> EvtSig ;
-  events : Type ;
-  status : events -> Status ;
+  events : Tagged Status ;
 }.
 
-Arguments status {Σ} : rename.
+Definition status [Σ : MachineSignature] (e : events Σ) : Status :=
+  get_tag e.
+
+(* Arguments status {Σ} : rename. *)
 
 Section Machine.
 
@@ -27,12 +34,14 @@ Variable A : Mod[INS_FOPEQ] (evt_sig Σ).
 Let X := vars (evt_sig Σ).
 Let X' := vars' (evt_sig Σ).
 
-Definition MachineSen :=
-  (FOSen (SigExpansion (evt_sig Σ) X') *
-  (events Σ -> FOSen (SigExpansion (evt_sig Σ) (X ⊕ X'))))%type.
+Definition MachineSen : Type.
+  refine ((FOSen (SigExpansion (evt_sig Σ) _) *
+  (events Σ -> FOSen (SigExpansion (evt_sig Σ) (X ⊕ X'))))%type).
+  exact X'.
+Defined.
 
 Definition MachineMod :=
-  ((Env X A) * (list (events Σ * (Env X A))))%type.
+  Env X A * list (events Σ * (Env X A))%type.
 
 Fixpoint interp_machine_tail
     (st : Env X A)
@@ -100,13 +109,11 @@ Program Definition MachineSig : Category := {|
   homset := Morphism_equality ;
 |}.
 Next Obligation.
-  unfold MachineSigMor.
   unshelve esplit.
   - exact (id{EvtSig}).
   - unshelve esplit; [ exact idmap | easy ].
 Defined.
 Next Obligation.
-  unfold MachineSigMor in *.
   unshelve esplit.
   - destruct f as [f _], g as [g _].
     exact (compose f g).
@@ -114,37 +121,32 @@ Next Obligation.
     exact (compose_event_mor f g).
 Defined.
 Next Obligation.
-  unfold MachineSig_obligation_2.
-  unfold MachineSig_obligation_1.
-  destruct f. cbn. f_equal.
+  unfold MachineSig_obligation_2, MachineSig_obligation_1.
+  destruct f; f_equal.
   - apply (id_left (Category := EvtSig)).
-  - unfold compose_event_mor; destruct e. f_equal.
+  - unfold compose_event_mor; destruct e; cbn. f_equal.
     apply proof_irrelevance.
 Qed.
 Next Obligation.
   unfold MachineSig_obligation_2, MachineSig_obligation_1.
   destruct f. f_equal.
   - apply (id_right (Category := EvtSig)).
-  - unfold compose_event_mor; destruct e. f_equal.
+  - unfold compose_event_mor; destruct e; cbn. f_equal.
     apply proof_irrelevance.
 Qed.
 Next Obligation.
   unfold MachineSig_obligation_2. destruct f, g, h. f_equal.
   - apply (comp_assoc (Category := EvtSig)).
-  - unshelve refine (
-      eq_event_morphism _ _
-      (compose_event_mor e (compose_event_mor e0 e1))
-      (compose_event_mor (compose_event_mor e e0) e1)
-      eq_refl _); apply proof_irrelevance.
+  - unshelve refine (eq_event_morphism _ _ _ _ _ _).
+    * reflexivity.
+    * apply proof_irrelevance.
 Qed.
 Next Obligation.
-unfold MachineSig_obligation_2. destruct f, g, h. f_equal.
-- apply (comp_assoc_sym (Category := EvtSig)).
-- unshelve refine (
-    eq_event_morphism _ _
-    (compose_event_mor (compose_event_mor e e0) e1)
-    (compose_event_mor e (compose_event_mor e0 e1))
-    eq_refl _); apply proof_irrelevance.
+  unfold MachineSig_obligation_2. destruct f, g, h. f_equal.
+  - apply (comp_assoc_sym (Category := EvtSig)).
+  - unshelve refine (eq_event_morphism _ _ _ _ _ _).
+    * reflexivity.
+    * apply proof_irrelevance.
 Qed.
 
 Lemma eq_machine_mod (Σ : MachineSig) (M M' : { A & MachineMod Σ A })
@@ -159,8 +161,7 @@ Lemma eq_machine_mod (Σ : MachineSig) (M M' : { A & MachineMod Σ A })
 Proof.
   destruct M, M'; cbn in *.
   destruct m, m0.
-  destruct p.
-  destruct q.
+  destruct p, q.
   now simplify_eqs.
 Qed.
 
@@ -175,10 +176,9 @@ Definition fmap_MacMod [Σ Σ'] (σ : MachineSigMor Σ' Σ) (M : MacMod' Σ) : M
   unfold MachineMod.
   split; cbn in *.
   - exact (retract_env σ (on_vars σ) (fst M)).
-  - destruct M as [_ θs]. cbn in θs.
+  - destruct M as [_ θs].
     refine (map _ θs); intros θ; clear θs.
-    destruct θ as [ e θ ].
-    split.
+    destruct θ as [ e θ ]; split.
     * exact (evtmor e).
     * exact (retract_env σ (on_vars σ) θ).
 Defined.
@@ -190,10 +190,8 @@ Program Instance MacMod Σ : Category := {|
   id := λ _, id{Alg (evt_sig Σ)} ;
   compose := λ _ _ _, compose (Category := Alg (evt_sig Σ)) ;
 |}.
-Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Qed.
-Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Qed.
-Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Qed.
-Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Qed.
+Solve All Obligations with
+  intros; refine (eq_alghom _ _ _ _ _); auto.
 
 Program Instance MacHomFunctor [Σ Σ'] (σ : MachineSigMor Σ' Σ) : MacMod Σ ⟶ MacMod Σ' := {|
   fobj := fmap_MacMod σ ;
@@ -208,34 +206,29 @@ Program Definition MachineModFunctor : MachineSig^op ⟶ Cat := {|
 |}.
 Next Obligation.
   rename x0 into M.
-  unshelve refine (eq_machine_mod x _ _ _ _ _).
-  - destruct M; cbn. auto.
+  unshelve refine (eq_machine_mod x _ _ _ _ _); cbn.
+  - reflexivity.
+  - now rewrite (fmap_id (Functor := Mod[INS_FOPEQ]) (x := evt_sig x)).
   - destruct M; cbn.
-    pose proof (fmap_id (Functor := Mod[INS_FOPEQ]) (x := evt_sig x)).
-    cbn in X. now rewrite X.
-  - destruct M. cbn. repeat change (λ x, ?f x) with f.
     destruct m; split; auto.
-    replace l with (map idmap l) at 2.
-    apply map_ext.
-    intros. destruct a; f_equal. apply map_id.
+    replace l with (map idmap l) at 2. {
+      apply map_ext; intros a. destruct a. f_equal.
+    }
+    apply map_id.
 Qed.
 Next Obligation.
   rename x0 into M.
   unshelve refine (eq_machine_mod z _ _ _ _ _).
-  - destruct M; cbn.
-    destruct f, g. cbn. reflexivity.
-  - destruct M. cbn. destruct f, g. cbn.
-    rewrite reduct_comp; auto.
+  - destruct M; cbn. destruct f, g; cbn.
+    reflexivity.
+  - destruct M; cbn. destruct f, g; cbn.
+    rewrite reduct_comp. auto.
   - destruct M, f, g; cbn.
     destruct m; split; auto.
-    * cbn. unfold retract_env. cbn.
-      funext ?. rewrite (rew_map _ h0).
-      rewrite rew_compose. f_equal.
+    * rewrite retract_env_compose. reflexivity.
     * rewrite map_map. apply map_ext.
       intros (evt & env). f_equal.
-      unfold retract_env; cbn; ext.
-      rewrite (rew_map _ h0), rew_compose.
-      f_equal.
+      rewrite retract_env_compose. reflexivity.
 Qed.
 
 Program Definition MachineSenFunctor : MachineSig ⟶ SetCat := {|
@@ -279,6 +272,17 @@ Next Obligation.
     now simplify_eqs.
 Qed.
 
+Lemma big_helper_2 [Σ Σ' : EvtSig]
+    (σ : Σ ~> Σ') [M] (θ : Env (vars Σ') M) :
+  retract_env σ (on_vars' σ) (retract_env (id_FOSig Σ') unprime θ)
+    = retract_env (id_FOSig Σ) unprime (retract_env σ (on_vars σ) θ).
+Proof.
+  repeat rewrite retract_env_compose; f_equal.
+  * now rewrite id_left_FOSig, id_right_FOSig.
+  * apply tagged_morphism_eq; cbn.
+    funext x. now rewrite unp_p.
+Qed.
+
 (* This proof of satisfaction is very repetitive, could be simplified. *)
 Global Program Instance MacEVT : Institution := {|
   Sig := MachineSig ;
@@ -291,46 +295,30 @@ Next Obligation.
   destruct φ as [init event], σ as [σ evtmor], M' as [ A M' ], M' as [θ₀ θₑ].
   destruct θₑ as [| this rest].
   - split; intros.
-    + split; [ cbn | cbn; auto ].
+    + split; cbn; auto.
       destruct H as [H _]. cbn in H.
-      apply bighelper in H.
-      cut (retract_env σ (on_vars' σ) (retract_env (id_FOSig (evt_sig Σ')) unprime θ₀)
-        = retract_env (id_FOSig (evt_sig Σ)) unprime (retract_env σ (on_vars σ) θ₀)).
-      intros. rewrite <- H0. auto.
-      repeat rewrite retract_env_compose.
-      f_equal. now rewrite id_left_FOSig, id_right_FOSig.
-      apply subset_eq_compat. unfold on_vars'. cbn.
-      funext ?; rewrite unp_p; auto.
-    + split; [ cbn | cbn; auto ].
+      apply expand_retract_iff in H.
+      rewrite <- big_helper_2. auto.
+    + split; cbn; auto.
       destruct H as [H _]. cbn in H.
-      apply bighelper.
-      cut (retract_env σ (on_vars' σ) (retract_env (id_FOSig (evt_sig Σ')) unprime θ₀)
-        = retract_env (id_FOSig (evt_sig Σ)) unprime (retract_env σ (on_vars σ) θ₀)).
-        intros. rewrite <- H0 in H. auto.
-        repeat rewrite retract_env_compose.
-        f_equal. now rewrite id_left_FOSig, id_right_FOSig.
-        apply subset_eq_compat. unfold on_vars'. cbn.
-        funext ?; rewrite unp_p; auto.
+      apply expand_retract_iff.
+      rewrite big_helper_2. auto.
   - split; intros.
     + split.
       * destruct H as [ H _ ]; destruct this as [ e st' ]; cbn in *.
-        apply bighelper in H.
-        cut (
-          retract_env σ (on_vars' σ) (retract_env (id_FOSig (evt_sig Σ')) unprime θ₀) =
-          retract_env (id_FOSig (evt_sig Σ)) unprime (retract_env σ (on_vars σ) θ₀)).
-        intros; rewrite <- H0; auto.
-        repeat rewrite retract_env_compose.
-        f_equal. now rewrite id_left_FOSig, id_right_FOSig.
-        apply subset_eq_compat. unfold on_vars'. cbn.
-        funext ?; rewrite unp_p; auto.
+        apply expand_retract_iff in H.
+        rewrite <- big_helper_2. auto.
       * destruct H; destruct this as [ e st' ]; cbn in *.
         split.
         ** destruct H0 as [ H0 _ ].
-           apply bighelper in H0.
+           apply expand_retract_iff in H0.
+           (* rewrite <- varmap_sum_join. *)
+           (* rewrite <- big_helper_2. *)
            cut (retract_env σ (varmap_sum σ (on_vars σ) (on_vars' σ)) (join_envs θ₀ (retract_env (id_FOSig (evt_sig Σ')) unprime st'))
               = join_envs (M := ReductAlgebra σ A) (retract_env σ (on_vars σ) θ₀) (retract_env (id_FOSig (evt_sig Σ)) unprime (retract_env σ (on_vars σ) st'))).
-           intros. rewrite <- H1. auto.
-           ext. destruct H1; unfold join_envs; cbn; unfold varmap_sum, retract_env; cbn. now simplify_eqs.
+           { intros. rewrite <- H1. auto. }
+           funext ?. destruct x; unfold join_envs; cbn; unfold varmap_sum, retract_env; cbn.
+           { now simplify_eqs. }
            rewrite (rew_map _ σ), rew_compose, rew_compose.
            simplify_eqs.
            destruct eqH. cbn. destruct Σ', evt_sig0, prime_rel. cbn in *.
@@ -346,11 +334,12 @@ Next Obligation.
            destruct a.
            split. {
              destruct H0 as [ H0 _ ].
-             apply bighelper in H0.
-             cut (retract_env σ (varmap_sum σ (on_vars σ) (on_vars' σ)) (join_envs st' (retract_env (id_FOSig (evt_sig Σ')) unprime e1))
-             = join_envs (M := ReductAlgebra σ A) (retract_env σ (on_vars σ) st') (retract_env (id_FOSig (evt_sig Σ)) unprime (retract_env σ (on_vars σ) e1))).
-             intros. rewrite <- H1. auto.
-             ext. destruct H1; unfold join_envs; cbn; unfold varmap_sum, retract_env; cbn. now simplify_eqs.
+             apply expand_retract_iff in H0.
+             cut (retract_env σ (varmap_sum σ (on_vars σ) (on_vars' σ)) (join_envs st' (retract_env (id_FOSig (evt_sig Σ')) unprime e0))
+             = join_envs (M := ReductAlgebra σ A) (retract_env σ (on_vars σ) st') (retract_env (id_FOSig (evt_sig Σ)) unprime (retract_env σ (on_vars σ) e0))).
+             { intros. rewrite <- H1. auto. }
+             funext ?. destruct x; unfold join_envs; cbn; unfold varmap_sum, retract_env; cbn.
+             { now simplify_eqs. }
              rewrite (rew_map _ σ), rew_compose, rew_compose.
              simplify_eqs.
              destruct eqH. cbn. destruct Σ', evt_sig0, prime_rel. cbn in *.
@@ -365,23 +354,24 @@ Next Obligation.
            apply (IHrest _ H0).
     + split.
     * destruct H as [ H _ ]; destruct this as [ e st' ]; cbn in *.
-      apply bighelper.
+      apply expand_retract_iff.
       cut (
         retract_env (id_FOSig (evt_sig Σ)) unprime (retract_env σ (on_vars σ) θ₀) =
         retract_env σ (on_vars' σ) (retract_env (id_FOSig (evt_sig Σ')) unprime θ₀)).
-      intros. rewrite H0 in H; auto.
+      { intros. rewrite H0 in H; auto. }
       repeat rewrite retract_env_compose.
-      f_equal. now rewrite id_left_FOSig, id_right_FOSig.
+      f_equal. { now rewrite id_left_FOSig, id_right_FOSig. }
       apply subset_eq_compat. unfold on_vars'. cbn.
       ext; rewrite unp_p. auto.
     * destruct H; destruct this as [ e st' ]; cbn in *.
       split.
       ** destruct H0 as [ H0 _ ].
-         apply bighelper.
+         apply expand_retract_iff.
          cut (retract_env σ (varmap_sum σ (on_vars σ) (on_vars' σ)) (join_envs θ₀ (retract_env (id_FOSig (evt_sig Σ')) unprime st'))
               = join_envs (M := ReductAlgebra σ A) (retract_env σ (on_vars σ) θ₀) (retract_env (id_FOSig (evt_sig Σ)) unprime (retract_env σ (on_vars σ) st'))).
-        intros. rewrite H1. auto.
-        ext. destruct H1; unfold join_envs; cbn; unfold varmap_sum, retract_env; cbn. now simplify_eqs.
+        { intros. rewrite H1. auto. }
+        funext ?. destruct x; unfold join_envs; cbn; unfold varmap_sum, retract_env; cbn.
+        { now simplify_eqs. }
         rewrite (rew_map _ σ), rew_compose, rew_compose.
         simplify_eqs.
         destruct eqH. cbn. destruct Σ', evt_sig0, prime_rel. cbn in *.
@@ -397,11 +387,12 @@ Next Obligation.
           destruct a.
           split. {
             destruct H0 as [ H0 _ ].
-            apply bighelper.
-            cut (retract_env σ (varmap_sum σ (on_vars σ) (on_vars' σ)) (join_envs st' (retract_env (id_FOSig (evt_sig Σ')) unprime e1))
-            = join_envs (M := ReductAlgebra σ A) (retract_env σ (on_vars σ) st') (retract_env (id_FOSig (evt_sig Σ)) unprime (retract_env σ (on_vars σ) e1))).
-            intros. rewrite H1. auto.
-            ext. destruct H1; unfold join_envs; cbn; unfold varmap_sum, retract_env; cbn. now simplify_eqs.
+            apply expand_retract_iff.
+            cut (retract_env σ (varmap_sum σ (on_vars σ) (on_vars' σ)) (join_envs st' (retract_env (id_FOSig (evt_sig Σ')) unprime e0))
+            = join_envs (M := ReductAlgebra σ A) (retract_env σ (on_vars σ) st') (retract_env (id_FOSig (evt_sig Σ)) unprime (retract_env σ (on_vars σ) e0))).
+            { intros. rewrite H1. auto. }
+            ext. destruct H1; unfold join_envs; cbn; unfold varmap_sum, retract_env; cbn.
+            { now simplify_eqs. }
             rewrite (rew_map _ σ), rew_compose, rew_compose.
             simplify_eqs.
             destruct eqH. cbn. destruct Σ', evt_sig0, prime_rel. cbn in *.

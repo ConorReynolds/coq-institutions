@@ -1,5 +1,5 @@
 Require Import Core.Basics.
-Require Import Core.HVec.
+Require Import Core.HList.
 Require Import FOL.Signature.
 Require Import FOL.Algebra.
 
@@ -22,7 +22,7 @@ Fixpoint mem_bump' [T] [Γ Δ : list T] [s] (m : member s Γ) : member s (Δ ++ 
 Equations term_bump [Σ Γ Δ s] (t : Term Σ Γ s) : Term Σ (Γ ++ Δ) s := {
   term_bump (var m) := var (mem_bump m) ;
   term_bump (term F ts) := term F (map_term_bump ts)
-} where map_term_bump [Σ Γ Δ w] (ts : HVec (Term Σ Γ) w) : HVec (Term Σ (Γ ++ Δ)) w := {
+} where map_term_bump [Σ Γ Δ w] (ts : HList (Term Σ Γ) w) : HList (Term Σ (Γ ++ Δ)) w := {
   map_term_bump ⟨⟩ := ⟨⟩ ;
   map_term_bump (t ::: ts) := term_bump t ::: map_term_bump ts
 }.
@@ -31,7 +31,7 @@ Equations term_bump [Σ Γ Δ s] (t : Term Σ Γ s) : Term Σ (Γ ++ Δ) s := {
 Equations term_bump' [Σ Γ Δ s] (t : Term Σ Γ s) : Term Σ (Δ ++ Γ) s := {
   term_bump' (var m) := var (mem_bump' m) ;
   term_bump' (term F ts) := term F (map_term_bump' ts)
-} where map_term_bump' [Σ Γ Δ w] (ts : HVec (Term Σ Γ) w) : HVec (Term Σ (Δ ++ Γ)) w := {
+} where map_term_bump' [Σ Γ Δ w] (ts : HList (Term Σ Γ) w) : HList (Term Σ (Δ ++ Γ)) w := {
   map_term_bump' ⟨⟩ := ⟨⟩ ;
   map_term_bump' (t ::: ts) := term_bump' t ::: map_term_bump' ts
 }.
@@ -46,8 +46,8 @@ Equations substitute
 } where map_substitute
     [Σ Γ Δ u w]
     (t₁ : Term Σ Γ u)
-    (ts : HVec (Term Σ (u :: Δ)) w)
-    : HVec (Term Σ (Γ ++ Δ)) w := {
+    (ts : HList (Term Σ (u :: Δ)) w)
+    : HList (Term Σ (Γ ++ Δ)) w := {
   map_substitute _  ⟨⟩ := ⟨⟩ ;
   map_substitute t₁ (t ::: ts) := substitute t₁ t ::: map_substitute t₁ ts
 }.

@@ -1,3 +1,6 @@
+(****************************************************************)
+(* Start of Chlipala’s Tactics.v *)
+
 (* Copyright (c) 2008, Adam Chlipala
  * 
  * This work is licensed under a
@@ -85,6 +88,7 @@
  
  Ltac rewriter := autorewrite with cpdt in *; rewriterP.
  
+ #[export]
  Hint Rewrite app_ass : cpdt.
  
  Definition done (T : Type) (x : T) := True.
@@ -185,6 +189,9 @@ Require Import FunctionalExtensionality.
 Ltac ext := let x := fresh in extensionality x.
 Ltac pl  := crush; repeat (ext || f_equal; crush).
 
+(* End of Chlipala’s Tactics.v *)
+(************************************************************)
+
 (* Some from Basics/Overture.v in the HoTT library, for good measure *)
 Tactic Notation "funext" simple_intropattern(a)
   := apply functional_extensionality_dep; intros a.
@@ -198,3 +205,15 @@ Tactic Notation "funext" simple_intropattern(a) simple_intropattern(b) simple_in
   := funext a; funext b; funext c; funext d; funext e.
 Tactic Notation "funext" simple_intropattern(a) simple_intropattern(b) simple_intropattern(c) simple_intropattern(d) simple_intropattern(e) simple_intropattern(f)
   := funext a; funext b; funext c; funext d; funext e; funext f.
+
+(* Some more custom tactics *)
+Require Import Utf8.
+
+Ltac split_hypos :=
+  repeat match goal with
+  | [ H : ex _ |- _ ] => destruct H
+  | [ H : sig _ |- _ ] => destruct H
+  | [ H : sigT _ |- _ ] => destruct H
+  | [ H : _ ∧ _ |- _ ] => destruct H
+  | [ H : _ * _ |- _ ] => destruct H
+  end.

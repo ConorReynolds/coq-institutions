@@ -1,10 +1,11 @@
 Require Import Category.Lib.
 Require Import Category.Theory.
-Require Import Category.Functor.Opposite.
 Require Import Category.Instance.Cat.
+Require Import Category.Functor.Opposite.
+Require Import Category.Construction.Opposite.
 
 Require Import Core.Basics.
-Require Import Core.HVec.
+Require Import Core.HList.
 Require Import Core.Sets.
 
 Require Import Peano.
@@ -34,18 +35,21 @@ Defined.
 
 (* We’re strengthening equality here substantially to make the proofs simpler.
  * Time will tell if it needs to change to isomorphism. *)
+#[export]
 Instance Functor_Setoid {C D : Category} : Setoid (C ⟶ D).
   unshelve refine {|
     equiv (F G : C ⟶ D) := ∀ x : C, F x = G x ;
   |}. split; auto. repeat intro. transitivity (y x0); auto.
 Defined.
 
+#[export]
 Program Instance Compose_respects {C D E : Category} :
   Proper (equiv ==> equiv ==> equiv) (@Compose C D E).
 Next Obligation.
   cbn; rewrite H0, H. auto.
 Qed.
 
+#[export]
 Program Instance Cat : Category := {
   obj     := Category ;
   hom     := @Functor ;
@@ -61,10 +65,11 @@ Class Institution := {
   Sen : Sig ⟶ SetCat ;
   Mod : Sig^op ⟶ Cat ;
   
-  interp : ∀ {Σ : Sig}, Mod Σ -> Sen Σ -> Prop ;
+  interp : ∀ (Σ : Sig), Mod Σ -> Sen Σ -> Prop
+    where "M ⊨ φ" := (interp _ M φ) ;
   
   sat : ∀ (Σ Σ' : Sig) (σ : Σ ~> Σ') (φ : Sen Σ) (M' : Mod Σ'),
-    interp M' (fmap[Sen] σ φ) <-> interp (fmap[Mod] σ M') φ
+    M' ⊨ fmap[Sen] σ φ <-> fmap[Mod] σ M' ⊨ φ
 }.
 
 Arguments interp {I Σ} M φ : rename.
@@ -150,9 +155,12 @@ Definition Duplex (I I' : Institution) (μ : InsSemiMorphism I I') : Institution
   |}; repeat intro.
   destruct φ; cbn.
   - apply sat.
-  - pose proof (H := @naturality _ _ _ _ (μs_mod μ) Σ' Σ σ M'); cbn in H.
+  - pose proof (H := naturality (μs_mod μ) _ _ σ M'); cbn in H.
     now rewrite <- H, sat.
 Defined.
+
+Create HintDb institutions.
+#[global] Hint Rewrite @sat : institutions.
 
 Section one_signature.
 
@@ -270,12 +278,10 @@ Lemma preserves_consequence (f : σ ~> τ) (Φ : presentation σ) (φ : Sen σ) 
   Φ ⟹ φ -> set_image (fmap[Sen] f) Φ ⟹ fmap[Sen] f φ.
 Proof.
   intros H m H1.
-  rewrite sat. apply H.
+  apply sat. apply H.
   intros ψ H2.
-  rewrite <- sat.
-  apply H1.
-  exists ψ.
-  split; auto.
+  rewrite <- sat. apply H1.
+  exists ψ. auto.
 Qed.
 
 Lemma alt_preserves_consequence (f : σ ~> τ) (Φ : presentation σ) :

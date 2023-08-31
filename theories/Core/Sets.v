@@ -29,6 +29,12 @@ Definition set_preimage (f : X -> Y) (S : SetOf Y) : SetOf X :=
 Definition set_image (f : X -> Y) (S : SetOf X) : SetOf Y :=
   ⦃ y : Y // ∃ x : X, x ∈ S ∧ f x = y ⦄.
 
+Definition powerset (S : SetOf X) : SetOf (SetOf X) :=
+  λ U, U ⊆ S.
+
+Definition set_prod (S : SetOf X) (T : SetOf Y) : SetOf (X * Y) :=
+  λ '(x, y), x ∈ S ∧ y ∈ T.
+
 Context [I : Type].
 
 Definition IndexedUnion (A : I -> SetOf X) : SetOf X := ⦃ x : X // ∃ i : I, x ∈ A i ⦄.
@@ -38,6 +44,7 @@ End Ensembles_defs.
 
 (* ⁻¹ already taken in the category theory lib — using the Lean notation instead *)
 Notation "f '⁻¹''" := (set_preimage f) (at level 5, format "f ⁻¹'") : sets_scope.
+Notation "S ×ₛ T" := (set_prod S T) (at level 15, right associativity) : sets_scope.
 
 (* If we had superscript arrows we could have f^{→} and f^{←} as image and
  * preimage respectively. Oh well. *)
@@ -58,4 +65,30 @@ Theorem set_mem_preimage (f : X -> Y) S a :
   a ∈ f⁻¹' S <-> f a ∈ S.
 Proof. firstorder. Qed.
 
+Theorem set_mem_image (f : X -> Y) S a :
+  a ∈ S -> f a ∈ set_image f S.
+Proof. firstorder. Qed.
+
+Theorem set_preimage_image (f : X -> Y) S :
+  S ⊆ f⁻¹' (set_image f S).
+Proof. firstorder. Qed.
+
+Theorem set_image_preimage (f : X -> Y) S :
+  set_image f (f⁻¹' S) ⊆ S.
+Proof.
+  intros y ?.
+  destruct H. destruct H as [H p].
+  rewrite <- p.
+  now rewrite <- set_mem_preimage.
+Qed.
+
 End Ensembles_facts.
+
+Section EventB_Defs.
+
+Context [X Y : Type].
+
+Definition eb_relation (S : SetOf X) (T : SetOf Y) :=
+  powerset (S ×ₛ T).
+
+End EventB_Defs.
