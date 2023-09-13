@@ -74,16 +74,16 @@ Definition LLTLSig : Category.
     id := id_LLTLSig ;
     compose := comp_LLTLSig ;
   |}; repeat intro; cbn in *.
-  - unshelve refine (eq_ltlsigmor _ _ _ _ _ _ _ _); auto; cbn.
+  - unshelve eapply eq_ltlsigmor; auto; cbn.
     * apply id_left_FOSig.
     * apply var_morphism_left_id.
-  - unshelve refine (eq_ltlsigmor _ _ _ _ _ _ _ _); auto; cbn.
+  - unshelve eapply eq_ltlsigmor; auto; cbn.
     * apply id_right_FOSig.
     * apply var_morphism_right_id.
-  - unshelve refine (eq_ltlsigmor _ _ _ _ _ _ _ _); auto; cbn.
+  - unshelve eapply eq_ltlsigmor; auto; cbn.
     * apply comp_assoc_FOSig.
     * apply var_morphism_assoc.
-  - unshelve refine (eq_ltlsigmor _ _ _ _ _ _ _ _); auto; cbn.
+  - unshelve eapply eq_ltlsigmor; auto; cbn.
     * symmetry. apply comp_assoc_FOSig.
     * symmetry. apply var_morphism_assoc.
 Defined.
@@ -93,7 +93,7 @@ Section Sentences.
 Context (Σ : LLTLSig).
 
 Inductive LLTLSentence : Type :=
-| FOLSen : Sen[INS_FOPEQ] (SigExpansion Σ (vars Σ)) -> LLTLSentence
+| FOLSen : Sen[INS_FOPEQ] (SigExtension Σ (vars Σ)) -> LLTLSentence
 | Or : LLTLSentence -> LLTLSentence -> LLTLSentence
 | Not : LLTLSentence -> LLTLSentence
 | Executed : (labels Σ -> bool) -> LLTLSentence
@@ -143,11 +143,11 @@ Definition LLTLSen : LLTLSig ⟶ SetCat.
     fmap_comp := λ A B C f g ψ, _ ;
   |}.
   - induction ψ; cbn in *; try congruence; auto.
-    f_equal. rewrite id_SigExpansion, fmap_id_FOSen.
+    f_equal. rewrite id_SigExtension, fmap_id_FOSen.
     * now simplify_eqs.
     * auto.
   - induction ψ; cbn in *; try congruence; auto.
-    f_equal. rewrite comp_SigExpansion, fmap_compose_FOSen.
+    f_equal. rewrite comp_SigExtension, fmap_compose_FOSen.
     now simplify_eqs.
 Defined.
 
@@ -201,7 +201,7 @@ Program Instance LLTL_ModHomFunctor A B (σ : LLTL_SigMor B A) : LLTL_Mod A ⟶ 
   fmap := λ M N h, fmap[ReductFunctor σ] h ;
 |}.
 Solve All Obligations with
-  intros; refine (eq_alghom _ _ _ _ _); auto.
+  intros; eapply eq_alghom; auto.
 
 Program Definition LLTLMod : LLTLSig^op ⟶ Cat := {|
     fobj := LLTL_Mod ;
@@ -210,7 +210,7 @@ Program Definition LLTLMod : LLTLSig^op ⟶ Cat := {|
     fmap_comp := _ ;
   |}.
 Next Obligation.
-  unshelve refine (eq_ltlmod _ _ _ _ _); auto; cbn in *.
+  unshelve eapply eq_ltlmod; auto; cbn in *.
   - apply reduct_id.
   - unfold map_trace. cbn. change (λ x, ?f x) with f in *.
     replace (trace x0) with (map idmap (trace x0)) at 2.
@@ -218,7 +218,7 @@ Next Obligation.
     apply map_id.
 Defined.
 Next Obligation.
-  unshelve refine (eq_ltlmod _ _ _ _ _); cbn in *; auto.
+  unshelve eapply eq_ltlmod; cbn in *; auto.
   - apply reduct_comp.
   - unfold map_trace; cbn. rewrite map_map. apply map_ext; intros. f_equal.
     funext ?. rewrite (rew_map _ (on_base g)); cbn. rewrite rew_compose. auto.

@@ -2,8 +2,10 @@ Require Import Core.Basics.
 Require Import Coq.Program.Equality.
 Require Import Coq.Logic.ProofIrrelevance.
 
-Set Printing Universes.
-
+(* A very similar treatment of these sorts of morphisms is given here:
+   https://github.com/peterlefanulumsdaine/general-type-theories/blob/master/Auxiliary/Family.v
+   Their way of spelling out the proofs such that they compute better works
+   quite well here too. *)
 Record Tagged@{t} (T : Type@{t}) : Type@{t+1} := { 
   tagged_data :> Type@{t} ;
   get_tag :> tagged_data -> T ;
@@ -34,22 +36,22 @@ Proof.
 Qed.
 
 Definition tagged_morphism
-    [A B : Type] (fᵢ : A -> B) (X : Tagged A) (Y : Tagged B) :=
-  { f : X -> Y | ∀ x : X, get_tag (f x) = fᵢ (get_tag x) }.
+    [A B : Type] (t : A -> B) (X : Tagged A) (Y : Tagged B) :=
+  { f : X -> Y | ∀ x : X, get_tag (f x) = t (get_tag x) }.
 
 Definition tagged_morphism_map
-  [A B : Type] (fᵢ : A -> B) (X : Tagged A) (Y : Tagged B)
-  : tagged_morphism fᵢ X Y -> (X -> Y) :=
-@proj1_sig _ _.
+    [A B : Type] (t : A -> B) (X : Tagged A) (Y : Tagged B)
+    : tagged_morphism t X Y -> (X -> Y) :=
+  @proj1_sig _ _.
 
 Coercion tagged_morphism_map : tagged_morphism >-> Funclass.
 
 Definition tagged_morphism_commutes
-    [A B : Type] [fᵢ : A -> B] [X Y]
-    : ∀ (f : tagged_morphism fᵢ X Y) (i : X), Y (f i) = fᵢ (X i) :=
+    [A B : Type] [t : A -> B] [X Y]
+    : ∀ (f : tagged_morphism t X Y) (i : X), Y (f i) = t (X i) :=
   @proj2_sig _ _.
 
-Lemma tagged_morphism_eq {T1 T2} {X : Tagged T1} {Y : Tagged T2} {t : T1 -> T2}
+Lemma tagged_morphism_eq {T1 T2 X Y} {t : T1 -> T2}
   (f g : tagged_morphism t X Y)
   : proj1_sig f = proj1_sig g -> f = g.
 Proof.
@@ -99,8 +101,3 @@ Definition tagged_right [A B] (T : Tagged B) : Tagged (A + B) := {|
 Definition tagged_empty A : Tagged A :=
   Build_Tagged A Empty_set void.
 
-(* Lemma oaknbsdokasnd [A] (f : A -> A) (X : Tagged A) (extid : ∀ x, f x = x) :
-  tagged_morphism f X X = tagged_morphism idmap X X.
-Proof.
-  unfold tagged_morphism. setoid_rewrite extid.
-Qed. *)

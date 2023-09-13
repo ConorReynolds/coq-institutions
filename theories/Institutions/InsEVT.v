@@ -44,19 +44,19 @@ Definition EvtSig : Category.
     comp_assoc := _ ;
     comp_assoc_sym := _ ;
   |}; intros.
-  - unshelve refine (eq_evtsigmorphism _ _ _ _ _ _ _); cbn.
+  - unshelve eapply eq_evtsigmorphism; cbn.
     * reflexivity.
     * apply id_left_FOSig.
     * apply var_morphism_left_id.
-  - unshelve refine (eq_evtsigmorphism _ _ _ _ _ _ _); cbn.
+  - unshelve eapply eq_evtsigmorphism; cbn.
     * reflexivity.
     * apply id_right_FOSig.
     * apply var_morphism_right_id.
-  - unshelve refine (eq_evtsigmorphism _ _ _ _ _ _ _); cbn.
+  - unshelve eapply eq_evtsigmorphism; cbn.
     * reflexivity.
     * apply comp_assoc_FOSig.
     * apply var_morphism_assoc.
-  - unshelve refine (eq_evtsigmorphism _ _ _ _ _ _ _); cbn.
+  - unshelve eapply eq_evtsigmorphism; cbn.
     * reflexivity.
     * symmetry. apply comp_assoc_FOSig.
     * symmetry. apply var_morphism_assoc.
@@ -101,10 +101,10 @@ Definition flatten_morphism
     {Σ₁ Σ₂ : FOSig} (σ : Σ₁ ~> Σ₂)
     {X₁ : Vars Σ₁} {X₂ : Vars Σ₂}
     (v : var_morphism σ X₁ X₂) :
-    SigExpansion Σ₁ X₁ ~> SigExpansion Σ₂ X₂.
+    SigExtension Σ₁ X₁ ~> SigExtension Σ₂ X₂.
 Proof.
   refine {|
-    on_sorts := on_sorts σ : Sorts (SigExpansion Σ₁ X₁) -> Sorts (SigExpansion Σ₂ X₂) ;
+    on_sorts := on_sorts σ : Sorts (SigExtension Σ₁ X₁) -> Sorts (SigExtension Σ₂ X₂) ;
     on_funcs := _ ;
     on_preds := on_preds σ ;
   |}.
@@ -130,16 +130,16 @@ Definition fmap_EVT {A B : EvtSig} (σ : A ~> B) (φ : EVT A) : EVT B :=
   | Event ψ => Event (fmap[FOSen] (flatten_event_morphism σ) ψ)
   end.
 
-Theorem id_SigExpansion {Σ} {X : Vars Σ}
+Theorem id_SigExtension {Σ} {X : Vars Σ}
     (f : var_morphism id{FOSig} X X) (pf : ∀ x, proj1_sig f x = x) :
-  flatten_morphism (id_FOSig Σ) f = id_FOSig (SigExpansion Σ X).
+  flatten_morphism (id_FOSig Σ) f = id_FOSig (SigExtension Σ X).
 Proof.
   unfold id_FOSig, flatten_morphism; f_equal; cbn in *.
   apply subset_eq_compat. funext x. destruct x; auto.
   f_equal. apply pf.
 Qed.
 
-Theorem comp_SigExpansion {A B C : FOSig} {X Y Z} {σ : B ~> C} {τ : A ~> B}
+Theorem comp_SigExtension {A B C : FOSig} {X Y Z} {σ : B ~> C} {τ : A ~> B}
     (f : var_morphism σ Y Z) (g : var_morphism τ X Y) :
   flatten_morphism (comp_FOSig σ τ) (var_morphism_compose f g) =
     comp_FOSig (flatten_morphism σ f) (flatten_morphism τ g).
@@ -150,22 +150,22 @@ Proof with cbn.
   funext F. destruct F as [F | c]; auto.
 Qed.
 
-Theorem comp_SigExpansion_init {A B C : EvtSig} (f : B ~> C) (g : A ~> B) :
+Theorem comp_SigExtension_init {A B C : EvtSig} (f : B ~> C) (g : A ~> B) :
   flatten_init_morphism (comp_EvtSig f g) =
     comp_FOSig (flatten_init_morphism f) (flatten_init_morphism g).
 Proof with cbn.
   unfold flatten_init_morphism.
-  rewrite <- comp_SigExpansion.
+  rewrite <- comp_SigExtension.
   f_equal; unfold on_vars'; apply subset_eq_compat.
   funext x... now rewrite unp_p.
 Qed.
 
-Theorem comp_SigExpansion_event {A B C : EvtSig} (f : B ~> C) (g : A ~> B) :
+Theorem comp_SigExtension_event {A B C : EvtSig} (f : B ~> C) (g : A ~> B) :
   flatten_event_morphism (comp_EvtSig f g) =
     comp_FOSig (flatten_event_morphism f) (flatten_event_morphism g).
 Proof with cbn.
   unfold flatten_event_morphism.
-  rewrite <- comp_SigExpansion.
+  rewrite <- comp_SigExtension.
   f_equal; cbn. apply varmap_sum_compose.
 Qed.
 
@@ -174,7 +174,7 @@ Theorem fmap_id_EVT (Σ : EvtSig) (φ : EVT Σ) :
 Proof.
   destruct φ; cbn.
   - unfold flatten_init_morphism; cbn.
-    unshelve erewrite (id_SigExpansion _ _); cbn.
+    unshelve erewrite (id_SigExtension _ _); cbn.
     { intros. now rewrite p_unp. }
     rewrite fmap_id_FOSen.
     now simplify_eqs.
@@ -183,7 +183,7 @@ Proof.
     * unfold varmap_sum, varmap_id. apply subset_eq_compat. funext x. destruct x; auto.
       unfold on_vars'. cbn. rewrite p_unp. reflexivity.
     * rewrite H; cbn.
-      unshelve erewrite (id_SigExpansion _ (λ _, _)); cbn; auto.
+      unshelve erewrite (id_SigExtension _ (λ _, _)); cbn; auto.
       rewrite fmap_id_FOSen.
       now simplify_eqs.
 Qed.
@@ -192,10 +192,10 @@ Theorem fmap_compose_EVT (A B C : EvtSig) (f : B ~> C) (g : A ~> B) (φ : EVT A)
   fmap_EVT (compose f g) φ = fmap_EVT f (fmap_EVT g φ).
 Proof.
   destruct φ; cbn; repeat f_equal.
-  - rewrite comp_SigExpansion_init; cbn.
+  - rewrite comp_SigExtension_init; cbn.
     rewrite fmap_compose_FOSen.
     now simplify_eqs.
-  - rewrite comp_SigExpansion_event; cbn.
+  - rewrite comp_SigExtension_event; cbn.
     rewrite fmap_compose_FOSen.
     now simplify_eqs.
 Qed.
@@ -316,7 +316,7 @@ Lemma expand_retract_iff
     (X : Vars Σ) (X' : Vars Σ')
     (v : var_morphism σ X X')
     (θ' : Env X' M')
-    (φ : FOPEQ (SigExpansion Σ X) []) :
+    (φ : FOPEQ (SigExtension Σ X) []) :
   interp_fopeq
     (AlgExpansion M' θ')
     (fmap_FOPEQ (flatten_morphism σ v) φ)

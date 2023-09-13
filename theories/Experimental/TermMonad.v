@@ -50,8 +50,6 @@ where map_term_join {Σ w w'} : HList (Term (TS Σ) w') w -> HList (Term Σ w') 
   map_term_join (t ::: ts) := term_join t ::: map_term_join ts
 }.
 
-Check term_join.
-
 Definition term_μ Σ : TS (TS Σ) ~> TS Σ.
   refine {|
     on_sorts := idmap : Sorts (TS (TS Σ)) -> Sorts (TS Σ) ;
@@ -69,14 +67,6 @@ Definition term_μ Σ : TS (TS Σ) ~> TS Σ.
     - exact idmap.
     - intros; now rewrite map_id.
 Defined.
-
-(* Definition term_μ Σ : TS (TS Σ) ~> TS Σ := {|
-  on_sorts := idmap : Sorts (TS (TS Σ)) -> Sorts (TS Σ) ;
-  on_funcs := λ w s F,
-    rew [λ w, Term Σ w s] (map_id w)^ in (term_join (Σ := Σ) F) ;
-  on_preds := λ w P,
-    rew (map_id w)^ in P ;
-|}. *)
 
 (* generates from a list [w] a hlist of properly typed indices into w *)
 Fixpoint range_mem {J : Type} (w : list J) : HList (λ sᵢ, member sᵢ w) w :=
@@ -105,13 +95,6 @@ Definition term_η Σ : Σ ~> TS Σ.
     - exact H.
     - now rewrite map_id.
 Defined.
-  
-
-(* Definition term_η Σ : Σ ~> TS Σ := {|
-  on_sorts := idmap : Sorts Σ -> Sorts (TS Σ) ;
-  on_funcs := λ w s f, term f (mems_to_var (range_mem w)) ;
-  on_preds := λ w P, rew (map_id w)^ in P ;
-|}. *)
 
 Definition fmapTS {Σ Σ'} : Σ ~{ FOSig }~> Σ' → TS Σ ~{ FOSig }~> TS Σ'.
   intros σ. refine {|
@@ -158,32 +141,22 @@ Next Obligation.
   - cbn. apply subset_eq_compat. funext F.
     rewrite <- (map_subst (P := λ l, Term x l (snd (Funcs x F))) (λ Γ, @on_terms _ _ Γ f _)).
     simp on_terms. unfold on_terms_obligation_1, on_terms_obligation_2.
-    simplify_eqs. apply eq_sigT_uncurried. cbn. unshelve esplit.
-    * f_equal. repeat rewrite map_id. now rewrite arityF_commutes.
-    * cbn. simplify_eqs. destruct eqH0.
-    (* dep_destruct (Funcs x F); cbn in *. *)
-    unfold mems_to_var. simplify_eqs.
-    destruct eqH0; cbn.
-    destruct eqH3; cbn.
-    rewrite map_on_terms_hmap, <- hmap_hmap.
-    simplify_eqs.
-    (* * cbn in *. simplify_eqs.
-      unfold mems_to_var. simplify_eqs. reflexivity.
-    * admit.
-  - cbn. repeat ext. simplify_eqs. destruct eqH0. destruct eqH. destruct eqH2. cbn. now simpl_uip. *)
+    apply eq_sigT_uncurried. cbn. unshelve esplit.
+    * f_equal; try now rewrite arityF_commutes.
+      rewrite tagged_morphism_commutes. auto.
+    * cbn. unfold mems_to_var. rewrite map_on_terms_hmap.
+      repeat rewrite <- rew_compose.
+      repeat rewrite <- rew_map. cbn.
+      rewrite <- (rew_map
+        (λ a : Ctx y * Sorts y, Term y (fst a) (snd a))
+        (λ f0 : Sorts y → list (Sorts y) * Sorts y,
+          f0 (snd (Funcs y (on_funcs f F))))).
+      rewrite <- rew_compose.
+      rewrite <- rew_map; cbn in *.
 Admitted.
 Next Obligation.
   unshelve refine (eq_signature_morphism (TS (TS (TS x))) (TS x) (comp_FOSig (term_μ x) (fmapTS (term_μ x))) (comp_FOSig (term_μ x) (term_μ (TS x))) eq_refl _ _).
   - cbn. repeat ext. simplify_eqs.
-    (* destruct eqH.
-    dependent induction H1.
-    * cbn in *. rewrite reindex_member_id. destruct (map_id H)^. cbn. now simpl_uip.
-    * simp on_terms. simpl term_join. cbn in *. rewrite map_on_terms_hmap. cbn. rewrite reindex_id. destruct (map_id w)^. cbn.
-      induction f; cbn.
-      + repeat simp term_join. rewrite nth_f. rewrite <- hmap_hmap. rewrite nth_f. 
-        unfold term_μ. cbn. admit.
-      + admit.
-  - reflexivity. *)
 Admitted.
 Next Obligation.
 Admitted.

@@ -39,10 +39,7 @@ Defined.
 Definition fmap_promote
     {Σ Σ' : FOSig} (f : Σ ~> Σ')
     : fobj_promote Σ ~> fobj_promote Σ'.
-  unshelve refine {|
-    on_base   := _ ;
-    on_vars   := _ ;
-  |}.
+  unshelve esplit.
   - exact f.
   - exists void; cbn; intros; contradiction.
 Defined.
@@ -52,7 +49,6 @@ Program Definition promote : FOSig ⟶ EvtSig := {|
   fmap := @fmap_promote ;
 |}.
 Next Obligation.
-  unfold fmap_promote.
   refine (
     eq_evtsigmorphism _ _ (fmap_promote (id_FOSig x)) (id_EvtSig (fobj_promote x))
     eq_refl eq_refl _
@@ -68,12 +64,12 @@ Qed.
 (*****************************************************************************)
 (** ρ_sen : FOSen ⟹ EvtSen ◯ promote *)
 
-Definition inc_sen_sig_mor (Σ : FOSig) : Σ ~> SigExpansion (promote Σ) (vars' (promote Σ)).
-refine {|
-  on_sorts := idmap : Sorts Σ -> Sorts (SigExpansion (promote Σ) (vars' (promote Σ))) ;
-  on_funcs := _ ;
-  on_preds := _ ;
-|}.
+Definition inc_sen_sig_mor (Σ : FOSig) : Σ ~> SigExtension (promote Σ) (vars' (promote Σ)).
+  refine {|
+    on_sorts := idmap : Sorts Σ -> Sorts (SigExtension (promote Σ) (vars' (promote Σ))) ;
+    on_funcs := _ ;
+    on_preds := _ ;
+  |}.
   - exists Datatypes.inl; intros.
     rewrite lift_ty_idmap. reflexivity.
   - exists idmap; intros.

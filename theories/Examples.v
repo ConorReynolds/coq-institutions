@@ -493,9 +493,9 @@ Definition mac_sig_base : EvtSignature.
   - induction x; auto.
 Defined.
 
-Definition mac_sig_init := EvtSigExpansion mac_sig_base (vars' mac_sig_base).
-Definition mac_sig_event := EvtSigExpansion mac_sig_base ((vars mac_sig_base) ⊕ (vars' mac_sig_base)).
-Definition mac_sig_ltl := EvtSigExpansion mac_sig_base (vars mac_sig_base).
+Definition mac_sig_init := EvtSigExtension mac_sig_base (vars' mac_sig_base).
+Definition mac_sig_event := EvtSigExtension mac_sig_base ((vars mac_sig_base) ⊕ (vars' mac_sig_base)).
+Definition mac_sig_ltl := EvtSigExtension mac_sig_base (vars mac_sig_base).
 
 Definition MacSen := EVT mac_sig_base.
 

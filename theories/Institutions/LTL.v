@@ -1,9 +1,10 @@
 Require Import Category.Lib.
 Require Import Category.Theory.
+Require Import Category.Construction.Opposite.
 
 Require Import Core.Basics.
 Require Import Core.Utils.
-Require Import Core.HVec.
+Require Import Core.HList.
 Require Import Institutions.
 Require Import EVT.Basics.
 Require Import Institutions.Machine.
@@ -58,27 +59,19 @@ Definition LTLSig : Category.
     homset := Morphism_equality ;
     id := id_LTLSig ;
     compose := comp_LTLSig ;
-  |}; repeat intro.
-  - refine (
-      eq_ltlsigmor x y (comp_LTLSig (id_LTLSig y) f) f
-      eq_refl
-      (id_left_FOSig (on_base f)) _
-    ); auto; apply var_morphism_left_id.
-  - refine (
-      eq_ltlsigmor x y (comp_LTLSig f (id_LTLSig x)) f
-      eq_refl
-      (id_right_FOSig (on_base f)) _
-    ); auto; apply var_morphism_right_id.
-  - refine (
-      eq_ltlsigmor _ _ (comp_LTLSig f (comp_LTLSig g h)) (comp_LTLSig (comp_LTLSig f g) h)
-      eq_refl
-      (comp_assoc_FOSig _ _ _ _ (on_base f) (on_base g) (on_base h)) _
-    ); auto; apply var_morphism_assoc.
-  - refine (
-      eq_ltlsigmor _ _ (comp_LTLSig (comp_LTLSig f g) h) (comp_LTLSig f (comp_LTLSig g h))
-      eq_refl
-      (comp_assoc_FOSig _ _ _ _ (on_base f) (on_base g) (on_base h))^ _
-    ); auto; symmetry; apply var_morphism_assoc.
+  |}; repeat intro; cbn in *.
+  - unshelve eapply eq_ltlsigmor; auto; cbn.
+    * apply id_left_FOSig.
+    * apply var_morphism_left_id.
+  - unshelve eapply eq_ltlsigmor; auto; cbn.
+    * apply id_right_FOSig.
+    * apply var_morphism_right_id.
+  - unshelve eapply eq_ltlsigmor; auto; cbn.
+    * apply comp_assoc_FOSig.
+    * apply var_morphism_assoc.
+  - unshelve eapply eq_ltlsigmor; auto; cbn.
+    * symmetry. apply comp_assoc_FOSig.
+    * symmetry. apply var_morphism_assoc.
 Defined.
 
 Section Sentences.
@@ -86,7 +79,7 @@ Section Sentences.
 Context (Σ : LTLSig).
 
 Inductive LTLSentence : Type :=
-| FOLSen : Sen[INS_FOPEQ] (SigExpansion Σ (vars Σ)) -> LTLSentence
+| FOLSen : Sen[INS_FOPEQ] (SigExtension Σ (vars Σ)) -> LTLSentence
 | Or : LTLSentence -> LTLSentence -> LTLSentence
 | Not : LTLSentence -> LTLSentence
 | Globally : LTLSentence -> LTLSentence
@@ -133,10 +126,11 @@ Definition LTLSen : LTLSig ⟶ SetCat.
     fmap_comp := λ A B C f g ψ, _ ;
   |}.
   - induction ψ; cbn in *; try congruence; auto.
-    f_equal. rewrite id_SigExpansion, fmap_id_FOSen.
-    now simplify_eqs. auto.
+    f_equal. rewrite id_SigExtension, fmap_id_FOSen.
+    * now simplify_eqs.
+    * auto.
   - induction ψ; cbn in *; try congruence; auto.
-    f_equal. rewrite comp_SigExpansion, fmap_compose_FOSen.
+    f_equal. rewrite comp_SigExtension, fmap_compose_FOSen.
     now simplify_eqs.
 Defined.
 
@@ -161,6 +155,7 @@ Qed.
 Definition LTLModelMorphism [Σ] (M N : LTL_Model Σ) :=
   AlgebraHom (base_alg M) (base_alg N).
 
+#[export]
 Program Instance LTL_Mod (Σ : LTLSig) : Category := {|
   obj := LTL_Model Σ ;
   hom := @LTLModelMorphism Σ ;
@@ -168,10 +163,8 @@ Program Instance LTL_Mod (Σ : LTLSig) : Category := {|
   id := λ _, id (Category := Alg _) ;
   compose := λ _ _ _, compose (Category := Alg _)
 |}.
-Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Qed.
-Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Qed.
-Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Qed.
-Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Qed.
+Solve All Obligations with
+  intros; refine (eq_alghom _ _ _ _ _); auto.
 
 Definition map_trace [A B] (σ : LTL_SigMor B A) (M : LTL_Model A) : list (Env (vars B) (base_alg M ∘ on_base σ)).
   refine (map _ (trace M)).
@@ -179,6 +172,7 @@ Definition map_trace [A B] (σ : LTL_SigMor B A) (M : LTL_Model A) : list (Env (
   apply var_morphism_commutes.
 Defined.
 
+#[export]
 Program Instance LTL_ModHomFunctor A B (σ : LTL_SigMor B A) : LTL_Mod A ⟶ LTL_Mod B := {|
   fobj := λ M, {| 
     base_alg := ReductAlgebra (on_base σ) (base_alg M) ;
@@ -186,8 +180,8 @@ Program Instance LTL_ModHomFunctor A B (σ : LTL_SigMor B A) : LTL_Mod A ⟶ LTL
   |} ;
   fmap := λ M N h, fmap[ReductFunctor σ] h ;
 |}.
-Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Qed.
-Next Obligation. refine (eq_alghom _ _ _ _ _); reflexivity. Qed.
+Solve All Obligations with
+  intros; eapply eq_alghom; auto.
 
 Program Definition LTLMod : LTLSig^op ⟶ Cat := {|
     fobj := LTL_Mod ;
@@ -196,15 +190,15 @@ Program Definition LTLMod : LTLSig^op ⟶ Cat := {|
     fmap_comp := _ ;
   |}.
 Next Obligation.
-  unshelve refine (eq_ltlmod _ _ _ _ _); cbn in *; auto.
+  unshelve eapply eq_ltlmod; auto; cbn in *.
   - apply reduct_id.
-  - unfold map_trace; now rewrite map_id.
+  - unfold map_trace. now rewrite map_id.
 Defined.
 Next Obligation.
-  unshelve refine (eq_ltlmod _ _ _ _ _); cbn in *; auto.
+  unshelve eapply eq_ltlmod; cbn in *; auto.
   - apply reduct_comp.
   - unfold map_trace; cbn. rewrite map_map. apply map_ext; intros.
-    funext ?. rewrite (rew_map _ (on_base g)), rew_compose; auto.
+    funext ?. rewrite (rew_map _ (on_base g)), rew_compose. auto.
 Defined.
 
 (** Computes all tails of a list. Required for LTL so we can compute M, πⁱ ⊨ ψ *)
@@ -265,15 +259,15 @@ Definition LTL : Institution.
     Mod := LTLMod ;
     interp := interp_LTL ;
     sat := _ ;
-  |}. repeat intro; cbn in *; unfold interp_LTL; cbn.
+  |}.
+    repeat intro; cbn in *; unfold interp_LTL; cbn.
     destruct M' as [A π]; cbn in *.
     revert π.  (* important, strengthens inductive hypo *)
     induction φ; split; intros.
-    - cbn in *.
-      destruct π; cbn in *; auto.
-      apply bighelper, H.
     - destruct π; cbn in *; auto.
-      apply bighelper, H.
+      apply expand_retract_iff. auto.
+    - destruct π; cbn in *; auto.
+      apply expand_retract_iff. auto.
     - destruct π as [ | here rest ]; cbn in *; auto.
       destruct H;
         [ left; apply (IHφ1 (here :: rest)) |
@@ -291,17 +285,15 @@ Definition LTL : Institution.
       * apply Forall_inv in H. apply (IHφ (here :: rest)). auto.
       * apply Forall_inv_tail in H. rewrite tails_map, Forall_map.
         destruct rest; cbn in *; auto.
-        apply Forall_cons; try apply ltl_empty; auto.
-        revert H; apply Forall_impl; intros π H.
-        apply IHφ; auto.
+        { apply Forall_cons; try apply ltl_empty; auto. }
+        revert H; apply Forall_impl; apply IHφ.
     - destruct π as [ | here rest ]; cbn in *; auto.
       apply Forall_cons.
       * apply Forall_inv in H. apply (IHφ (here :: rest)). auto.
       * apply Forall_inv_tail in H. rewrite tails_map, Forall_map in H.
         destruct rest; cbn in *; auto.
-        apply Forall_cons; try apply ltl_empty; auto.
-        revert H; apply Forall_impl; intros π H.
-        apply IHφ; auto.
+        { apply Forall_cons; try apply ltl_empty; auto. }
+        revert H; apply Forall_impl; apply IHφ.
     - induction π as [ | here rest IHπ ]; cbn in *; auto.
       apply Exists_cons in H. destruct H.
       * left. apply (IHφ (here :: rest)). exact H.
@@ -318,20 +310,20 @@ Definition LTL : Institution.
         + apply Exists_nil in H. contradiction.
     - induction π; try apply IHφ; exact H.
     - induction π; try apply IHφ; exact H.
-    - cbn in *; destruct π as [| here rest]; auto.
+    - cbn in *. destruct π as [| here rest]; auto.
       unfold map at 1. destruct H as [ n H ]; exists n.
-      rewrite skipn_map, firstn_map.
+      rewrite skipn_map, firstn_map, tails_map.
       split.
-      + destruct H as [ H _ ]. rewrite tails_map, Forall_map.
-        revert H; apply Forall_impl; intros π H.
-        apply IHφ1. auto.
-      + destruct H as [ _ H ]. rewrite <- IHφ2. auto.
+      + destruct H as [ H _ ].
+        rewrite Forall_map.
+        revert H. apply Forall_impl.
+        apply IHφ1.
+      + destruct H as [ _ H ]. apply IHφ2; auto.
     - cbn in *; destruct π as [| here rest]; auto.
       unfold map at 1 in H. destruct H as [ n H ]; exists n.
-      rewrite skipn_map, firstn_map in H.
+      rewrite skipn_map, firstn_map, tails_map in H.
       split.
-      + destruct H as [ H _ ]. rewrite tails_map, Forall_map in H.
-        revert H; apply Forall_impl; intros π H.
-        apply IHφ1. auto.
-      + destruct H as [ _ H ]. apply IHφ2. auto.
+      + destruct H as [ H _ ]. rewrite Forall_map in H.
+        revert H; apply Forall_impl; apply IHφ1.
+      + destruct H as [ _ H ]. apply IHφ2; auto.
 Defined.

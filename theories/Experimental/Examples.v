@@ -74,7 +74,6 @@ Next Obligation.
   now rewrite (fmap_comp (Functor := Sen[I])).
 Qed.
 
-(* need to turn this into a category *)
 Definition LTL_Mod_Cat (I : Institution) (Σ : Sig[I]) : Category. 
   unshelve refine {|
     obj := nat -> Mod Σ ;

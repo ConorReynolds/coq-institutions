@@ -35,8 +35,8 @@ Let X := vars (evt_sig Σ).
 Let X' := vars' (evt_sig Σ).
 
 Definition MachineSen : Type.
-  refine ((FOSen (SigExpansion (evt_sig Σ) _) *
-  (events Σ -> FOSen (SigExpansion (evt_sig Σ) (X ⊕ X'))))%type).
+  refine ((FOSen (SigExtension (evt_sig Σ) _) *
+  (events Σ -> FOSen (SigExtension (evt_sig Σ) (X ⊕ X'))))%type).
   exact X'.
 Defined.
 
@@ -46,7 +46,7 @@ Definition MachineMod :=
 Fixpoint interp_machine_tail
     (st : Env X A)
     (models : list (events Σ * (Env X A)))
-    (machine : events Σ -> FOSen (SigExpansion (evt_sig Σ) (X ⊕ X')))
+    (machine : events Σ -> FOSen (SigExtension (evt_sig Σ) (X ⊕ X')))
     {struct models}
     : Prop :=
   match models with
@@ -137,14 +137,14 @@ Qed.
 Next Obligation.
   unfold MachineSig_obligation_2. destruct f, g, h. f_equal.
   - apply (comp_assoc (Category := EvtSig)).
-  - unshelve refine (eq_event_morphism _ _ _ _ _ _).
+  - unshelve eapply eq_event_morphism.
     * reflexivity.
     * apply proof_irrelevance.
 Qed.
 Next Obligation.
   unfold MachineSig_obligation_2. destruct f, g, h. f_equal.
   - apply (comp_assoc_sym (Category := EvtSig)).
-  - unshelve refine (eq_event_morphism _ _ _ _ _ _).
+  - unshelve eapply eq_event_morphism.
     * reflexivity.
     * apply proof_irrelevance.
 Qed.
@@ -206,7 +206,7 @@ Program Definition MachineModFunctor : MachineSig^op ⟶ Cat := {|
 |}.
 Next Obligation.
   rename x0 into M.
-  unshelve refine (eq_machine_mod x _ _ _ _ _); cbn.
+  unshelve eapply (eq_machine_mod x); cbn.
   - reflexivity.
   - now rewrite (fmap_id (Functor := Mod[INS_FOPEQ]) (x := evt_sig x)).
   - destruct M; cbn.
@@ -218,7 +218,7 @@ Next Obligation.
 Qed.
 Next Obligation.
   rename x0 into M.
-  unshelve refine (eq_machine_mod z _ _ _ _ _).
+  unshelve eapply (eq_machine_mod z).
   - destruct M; cbn. destruct f, g; cbn.
     reflexivity.
   - destruct M; cbn. destruct f, g; cbn.
@@ -247,13 +247,13 @@ Next Obligation.
   rename x into Σ, x0 into sen.
   destruct sen as [init event]. cbn. f_equal.
   - unfold flatten_init_morphism; cbn.
-    rewrite id_SigExpansion; cbn.
+    rewrite id_SigExtension; cbn.
     * rewrite fmap_id_FOSen.
       now simplify_eqs.
     * intros; rewrite p_unp; auto.
   - funext e'. unfold flatten_event_morphism.
     assert (flatten_morphism (id_EvtSig (evt_sig Σ)) (varmap_sum _ (on_vars _) (on_vars' _)) = id{FOSig}).
-    * unfold flatten_morphism. cbn. unshelve refine (eq_signature_morphism _ _ _ _ _ _ _); cbn; auto.
+    * unfold flatten_morphism. cbn. unshelve eapply eq_signature_morphism; cbn; auto.
       apply subset_eq_compat. funext ?. destruct x; auto. destruct t; auto.
       now rewrite p_unp.
     * rewrite H; cbn.
@@ -263,11 +263,11 @@ Qed.
 Next Obligation.
   rename x0 into sen. destruct sen as [init event]. unfold MachineSenFunctor_obligation_1. cbn.
   destruct f, g. cbn. f_equal.
-  - rewrite comp_SigExpansion_init; cbn.
+  - rewrite comp_SigExtension_init; cbn.
     rewrite fmap_compose_FOSen.
     now simplify_eqs.
   - funext e'.
-    rewrite comp_SigExpansion_event; cbn.
+    rewrite comp_SigExtension_event; cbn.
     rewrite fmap_compose_FOSen.
     now simplify_eqs.
 Qed.

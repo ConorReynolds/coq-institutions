@@ -7,6 +7,7 @@
 theories/Notations.v
 theories/Core/Tactics.v
 theories/Core/Basics.v
+theories/Core/PushoutHIT.v
 theories/Core/Tagged.v
 theories/Core/Sets.v
 theories/Core/HList.v
@@ -17,10 +18,9 @@ theories/FOL/Algebra.v
 theories/FOL/Terms.v
 theories/FOL/Sentence.v
 theories/Institutions/InsFOPEQ.v
+theories/FOL/Amalgamation.v
 theories/EVT/Basics.v
 theories/Institutions/InsEVT.v
 theories/Institutions/Machine.v
 theories/Institutions/LTL.v
 theories/Institutions/LLTL.v
-theories/Institutions/EvtLTL.v
-theories/Experimental/TermMonad.v

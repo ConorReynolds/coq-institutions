@@ -93,10 +93,6 @@ Proof.
     exact H.
 Qed.
 
-(* A very similar treatment of these sorts of morphisms is given here:
-   https://github.com/peterlefanulumsdaine/general-type-theories/blob/master/Auxiliary/Family.v
-   Their way of spelling out the proofs such that they compute better works
-   quite well here too. *)
 Definition var_morphism [A B : FOSig] (σ : Sorts A -> Sorts B) (X : Vars A) (Y : Vars B) :=
   tagged_morphism σ X Y.
 
@@ -137,7 +133,7 @@ Proof.
   now case (e x0).
 Qed.
 
-(* eq_trans computes w/o ext in this proof *)
+(* eq_trans computes w/o funext in this proof *)
 Lemma var_morphism_right_id [A B : FOSig] [σ : A ~> B] [X Y] (f : var_morphism σ X Y) :
   var_morphism_compose f (varmap_id X) = f.
 Proof.
@@ -180,22 +176,19 @@ Proof.
   exact (prime_rel Σ).
 Defined.
 
-(* Idea: create injection [Tagged A ↪ Tagged (List A * A)] and then use regular
-   tagged sum *)
-
 Definition lift_vars [Σ] (X : Vars Σ) : Tagged (list (Sorts Σ) * Sorts Σ) := {|
   tagged_data := tagged_data X ;
   get_tag x := ([], get_tag x) ;
 |}.
 
-Definition SigExpansion (Σ : FOSig) (X : Vars Σ) : FOSig := {|
+Definition SigExtension (Σ : FOSig) (X : Vars Σ) : FOSig := {|
   Sorts := Sorts Σ ;
   Funcs := tagged_sum (Funcs Σ) (lift_vars X) ;
   Preds := Preds Σ ;
 |}.
 
-Program Definition EvtSigExpansion (Σ : EvtSignature) (X : Vars Σ) : EvtSignature := {|
-  base := SigExpansion Σ X ;
+Program Definition EvtSigExtension (Σ : EvtSignature) (X : Vars Σ) : EvtSignature := {|
+  base := SigExtension Σ X ;
   vars := {|
     tvars := vars Σ ;
     vars_dec := vars_dec (vars Σ) ;
@@ -251,8 +244,8 @@ Definition varsum [Σ] (X Y : Vars Σ) : Vars Σ := {|
 Notation "X ⊕ Y" := (varsum X Y).
 
 Inductive EVT (Σ : EvtSignature) : Type :=
-| Init  : Sen[INS_FOPEQ] (SigExpansion Σ (vars' Σ)) -> EVT
-| Event : Sen[INS_FOPEQ] (SigExpansion Σ (vars Σ ⊕ vars' Σ)) -> EVT.
+| Init  : Sen[INS_FOPEQ] (SigExtension Σ (vars' Σ)) -> EVT
+| Event : Sen[INS_FOPEQ] (SigExtension Σ (vars Σ ⊕ vars' Σ)) -> EVT.
 
 Arguments Event {Σ}.
 Arguments Init {Σ}.
@@ -263,7 +256,7 @@ Definition Env [Σ] (X : Vars Σ) (A : Sorts Σ -> Type) :=
   ∀ (x : X), A (get_tag x).
 
 Equations alg_exp_funcs {Σ : FOSig} {X : Vars Σ}
-    (A : Algebra Σ) (θ : Env X A) (F : Funcs (SigExpansion Σ X) )
+    (A : Algebra Σ) (θ : Env X A) (F : Funcs (SigExtension Σ X) )
     : HList (interp_sorts A) (ar F) -> interp_sorts A (res F) :=
   alg_exp_funcs _ _ (Datatypes.inr C) := λ _, θ C ;
   alg_exp_funcs _ _ (Datatypes.inl F) := interp_funcs A F .
@@ -271,8 +264,8 @@ Equations alg_exp_funcs {Σ : FOSig} {X : Vars Σ}
 Global Transparent alg_exp_funcs.
 
 Definition AlgExpansion {Σ : FOSig} {X : Vars Σ}
-    (A : Algebra Σ) (θ : Env X A) : Mod[INS_FOPEQ] (SigExpansion Σ X) := {|
-  interp_sorts := λ (s : Sorts (SigExpansion Σ X)), @interp_sorts Σ A s ;
+    (A : Algebra Σ) (θ : Env X A) : Mod[INS_FOPEQ] (SigExtension Σ X) := {|
+  interp_sorts := λ (s : Sorts (SigExtension Σ X)), @interp_sorts Σ A s ;
   interp_funcs := alg_exp_funcs A θ ;
   interp_preds := @interp_preds Σ A ;
 |}.

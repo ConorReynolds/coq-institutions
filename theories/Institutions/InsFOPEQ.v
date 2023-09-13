@@ -55,14 +55,14 @@ Next Obligation. repeat rewrite tagged_morphism_commutes. now rewrite map_map. D
 Theorem id_left_FOSig {Σ Σ'} (σ : SignatureMorphism Σ Σ') :
   comp_FOSig (id_FOSig Σ') σ = σ.
 Proof.
-  unshelve refine (eq_signature_morphism _ _ _ _ _ _ _); auto;
+  unshelve eapply eq_signature_morphism; auto;
   now apply tagged_morphism_eq.
 Qed.
 
 Theorem id_right_FOSig {Σ Σ'} (σ : SignatureMorphism Σ Σ') :
   comp_FOSig σ (id_FOSig Σ) = σ.
 Proof.
-  unshelve refine (eq_signature_morphism _ _ _ _ _ _ _); auto;
+  unshelve eapply eq_signature_morphism; auto;
   now apply tagged_morphism_eq.
 Qed.
 
@@ -73,7 +73,7 @@ Lemma comp_assoc_FOSig
     (f : SignatureMorphism A B) :
   comp_FOSig h (comp_FOSig g f) = comp_FOSig (comp_FOSig h g) f.
 Proof.
-  unshelve refine (eq_signature_morphism _ _ _ _ _ _ _); auto;
+  unshelve eapply eq_signature_morphism; auto;
   now apply tagged_morphism_eq.
 Qed.
 
@@ -263,27 +263,20 @@ Theorem fmap_id_FOSen : ∀ (Σ : Signature) {Γ : Ctx Σ} (φ : FOPEQ Σ Γ),
   fmap_FOPEQ (id_FOSig Σ) φ = rew [FOPEQ Σ] (map_id Γ)^ in φ.
 Proof.
   induction φ; cbn in *.
-  - 
-    (* rewrite map_id_cons_pfs in IHφ.
-    rewrite <- ap_V in IHφ.
-    rewrite IHφ.
-    rewrite <- rew_map. *)
-    rewrite (map_subst (λ _, Forall)). f_equal.
+  - rewrite (map_subst (λ _, Forall)). f_equal.
     rewrite rew_map.
     rewrite IHφ.
     rewrite ap_V.
-    repeat apply f_equal.
-    (* rewrite IHφ. repeat apply f_equal. *)
     reflexivity.
-  - rewrite map_id_cons_pfs in IHφ.
-    rewrite <- ap_V in IHφ.
+  - rewrite (map_subst (λ _, Exists)). f_equal.
+    rewrite rew_map.
     rewrite IHφ.
-    rewrite <- rew_map.
-    rewrite (map_subst (λ _, Exists)).
+    rewrite ap_V.
     reflexivity.
   - repeat rewrite on_terms_id. now simplify_eqs.
-  - unfold fmap_FOPEQ_obligation_1. repeat rewrite map_on_terms_id. simplify_eqs.
-    rewrite rew_compose. now simplify_eqs.
+  - unfold fmap_FOPEQ_obligation_1. repeat rewrite map_on_terms_id.
+    repeat rewrite rew_compose.
+    case (map_id Γ)^. now simplify_eqs.
   - rewrite IHφ1, IHφ2. now case (map_id Γ)^.
   - rewrite IHφ1, IHφ2. now case (map_id Γ)^.
   - rewrite IHφ1, IHφ2. now case (map_id Γ)^.
@@ -298,7 +291,7 @@ Theorem fmap_compose_FOSen :
   fmap_FOPEQ (comp_FOSig f g) φ =
     rew map_map g f Γ in fmap_FOPEQ f (fmap_FOPEQ g φ).
 Proof.
-  induction φ; cbn in * |- *; auto.
+  induction φ; cbn in *; auto.
   - rewrite IHφ.
     rewrite (map_subst (λ _, Forall)).
     rewrite (rew_map _ (cons (f (g s)))).

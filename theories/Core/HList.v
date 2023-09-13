@@ -18,7 +18,7 @@ Section HList.
   | HZ : ∀ {js}, member (j :: js)
   | HS : ∀ {j' js}, member js -> member (j' :: js).
 
-  Derive Signature NoConfusion for HList.
+  Derive NoConfusion for HList.
   Derive Signature for member.
 
   Equations nth {js : list J} (v : HList js) : member js -> A j :=
@@ -175,15 +175,6 @@ Fixpoint reindex
   | ⟨⟩ => ⟨⟩
   | a ::: v' => a ::: reindex f v'
   end.
-
-(* Fixpoint reindex'
-    {I J : Type} (f : I -> J)
-    {A : J -> Type} {w : list I} (v : HList A (map f w))
-    : HList (A ∘ f) w :=
-  match v with
-  | ⟨⟩ => ⟨⟩
-  | a ::: v' => a ::: reindex f v'
-  end. *)
 
 Equations reindex'
     {J K : Type} (f : J -> K)
